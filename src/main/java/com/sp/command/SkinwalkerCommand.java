@@ -2,6 +2,7 @@ package com.sp.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.LiteralMessage;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.sp.SPBRevamped;
@@ -13,6 +14,7 @@ import com.sp.init.ModEntities;
 import com.sp.init.ModSounds;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.command.argument.MessageArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -45,6 +47,30 @@ public class SkinwalkerCommand {
                                                 EntityArgumentType.getPlayers(context, "targets")
                                         )
                                 )
+                        )
+        );
+
+        serverCommandSourceCommandDispatcher.register(
+                CommandManager.literal("skinwalkerlang")
+                        .then(CommandManager.argument("lang", StringArgumentType.word())
+                                .suggests((context, builder) -> {
+                                    builder.suggest("auto");
+                                    builder.suggest("es");
+                                    builder.suggest("en");
+                                    builder.suggest("de");
+                                    builder.suggest("fr");
+                                    builder.suggest("it");
+                                    builder.suggest("pt");
+                                    builder.suggest("ru");
+                                    builder.suggest("zh");
+                                    builder.suggest("ja");
+                                    builder.suggest("ko");
+                                    return builder.buildFuture();
+                                })
+                                .executes(context -> setLanguage(
+                                        context.getSource(),
+                                        StringArgumentType.getString(context, "lang")
+                                ))
                         )
         );
     }
@@ -99,6 +125,42 @@ public class SkinwalkerCommand {
 
             SPBRevamped.sendPersonalPlaySoundPacket(target, ModSounds.SKINWALKER_RELEASE, 1.0f, 1.0f);
         }
+        return 1;
+    }
+
+    private static int setLanguage(ServerCommandSource source, String lang) throws CommandSyntaxException {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) {
+            throw new CommandSyntaxException(
+                new SimpleCommandExceptionType(new LiteralMessage("Must be run by a player")),
+                new LiteralMessage("Must be run by a player")
+            );
+        }
+
+        PlayerComponent component = InitializeComponents.PLAYER.get(player);
+        component.setSkinWalkerLang(lang);
+        component.sync();
+
+        String langName;
+        switch (lang) {
+            case "es": langName = "Español"; break;
+            case "en": langName = "English"; break;
+            case "de": langName = "Deutsch"; break;
+            case "fr": langName = "Français"; break;
+            case "it": langName = "Italiano"; break;
+            case "pt": langName = "Português"; break;
+            case "ru": langName = "Русский"; break;
+            case "zh": langName = "中文"; break;
+            case "ja": langName = "日本語"; break;
+            case "ko": langName = "한국어"; break;
+            case "auto": langName = "Auto-detect"; break;
+            default: langName = lang;
+        }
+
+        source.sendFeedback(() -> net.minecraft.text.Text.literal(
+            "§aSkin Walker language set to: §e" + langName
+        ), true);
+
         return 1;
     }
 

@@ -8,6 +8,7 @@ import com.sp.entity.ik.parts.Segment;
 import com.sp.entity.ik.parts.ik_chains.IKChain;
 import com.sp.entity.ik.parts.ik_chains.TargetReachingIKChain;
 import com.sp.entity.ik.parts.sever_limbs.ServerLimb;
+import com.sp.entity.voice.*;
 import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
@@ -33,6 +34,13 @@ public class SkinWalkerComponent implements AutoSyncedComponent {
     private boolean isNoticing;
     private int suspicion;
     private BlockPos lastKnownTargetLocation;
+
+    private VoiceGenerator voiceGenerator;
+    private ResponseQueue responseQueue;
+    private LatencyCalculator latencyCalculator;
+    private ResponseGenerator responseGenerator;
+    private String lastHeardInput = "";
+    private boolean voiceLearned = false;
 
     private final IKLegComponent<? extends IKChain, ? extends IKAnimatable<?>> IKComponent = new IKLegComponent<>(
             new IKLegComponent.LegSetting.Builder()
@@ -65,6 +73,10 @@ public class SkinWalkerComponent implements AutoSyncedComponent {
         this.followTarget = null;
         this.isChasing = false;
         this.suspicion = 0;
+        this.voiceGenerator = new VoiceGenerator();
+        this.responseQueue = new ResponseQueue();
+        this.latencyCalculator = new LatencyCalculator();
+        this.responseGenerator = new ResponseGenerator();
     }
 
     public boolean isChasing() {return isChasing;}
@@ -124,25 +136,46 @@ public class SkinWalkerComponent implements AutoSyncedComponent {
     public UUID getTargetPlayerUUID() {return this.targetPlayerUUID;}
     public void setTargetPlayerUUID(UUID targetPlayerUUID) {this.targetPlayerUUID = targetPlayerUUID; sync();}
 
+    public VoiceGenerator getVoiceGenerator() {return voiceGenerator;}
+    public void setVoiceGenerator(VoiceGenerator voiceGenerator) {this.voiceGenerator = voiceGenerator;}
+
+    public ResponseQueue getResponseQueue() {return responseQueue;}
+
+    public ResponseGenerator getResponseGenerator() {return responseGenerator;}
+
+    public String getLastHeardInput() {return lastHeardInput;}
+    public void setLastHeardInput(String input) {this.lastHeardInput = input;}
+
+    public boolean isVoiceLearned() {return voiceLearned;}
+    public void setVoiceLearned(boolean learned) {this.voiceLearned = learned;}
+
     public void sync(){InitializeComponents.SKIN_WALKER.sync(this.entity);}
 
 
     @Override
     public void readFromNbt(NbtCompound tag) {
         this.isSneaking = tag.getBoolean("isSneaking");
-        this.targetPlayerUUID = tag.getUuid("targetPlayerUUID");
+        if (tag.containsUuid("targetPlayerUUID")) {
+            this.targetPlayerUUID = tag.getUuid("targetPlayerUUID");
+        }
         this.isChasing = tag.getBoolean("isChasing");
         this.trueForm = tag.getBoolean("trueForm");
         this.beginReveal = tag.getBoolean("beginReveal");
+        this.voiceLearned = tag.getBoolean("voiceLearned");
+        this.suspicion = tag.getInt("suspicion");
     }
 
     @Override
     public void writeToNbt(NbtCompound tag) {
         tag.putBoolean("isSneaking", this.isSneaking);
-        tag.putUuid("targetPlayerUUID", this.targetPlayerUUID);
+        if (this.targetPlayerUUID != null) {
+            tag.putUuid("targetPlayerUUID", this.targetPlayerUUID);
+        }
         tag.putBoolean("isChasing", this.isChasing);
         tag.putBoolean("trueForm", this.trueForm);
         tag.putBoolean("beginReveal", this.beginReveal);
+        tag.putBoolean("voiceLearned", this.voiceLearned);
+        tag.putInt("suspicion", this.suspicion);
     }
 
 

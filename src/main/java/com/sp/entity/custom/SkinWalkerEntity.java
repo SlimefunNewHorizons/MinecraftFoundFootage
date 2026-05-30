@@ -9,6 +9,7 @@ import com.sp.entity.ai.SlightlyBetterMobNavigation;
 import com.sp.entity.ai.goals.*;
 import com.sp.entity.ik.components.IKAnimatable;
 import com.sp.entity.ik.components.IKModelComponent;
+import com.sp.entity.voice.SkinWalkerMovement;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
 import com.sp.sounds.entity.SkinWalkerChaseSoundInstance;
@@ -63,6 +64,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
     private int trueFormTime;
 
     public SkinWalkerChaseSoundInstance chaseSoundInstance;
+    public SkinWalkerMovement movementSystem;
 
     public SkinWalkerEntity(EntityType<? extends HostileEntity> entityType, World world) {
         super(entityType, world);
@@ -74,6 +76,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         this.maxSuspicion = 1800 + (900 * (world.getPlayers().size() - 1));
 
         this.setUpLimbs();
+        this.movementSystem = new SkinWalkerMovement(this);
     }
 
     protected void setUpLimbs() {
@@ -166,6 +169,8 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
                 if (this.getTarget() != null && this.component.shouldLookAtTarget()) {
                     ((SkinWalkerLookControl)this.getLookControl()).lookAt(this.getTarget(), 3);
                 }
+
+                this.movementSystem.tick();
             }
 
             if(this.component.isInTrueForm() && !this.component.shouldBeginRelease()){
@@ -235,17 +240,17 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
                 }
             }
 
-            if (this.ticks >= 220) {
+                if (this.ticks >= 220) {
                 if (backroomsLevel instanceof Level0BackroomsLevel level) {
                     level.setLightState(BackroomsLevelWithLights.LightState.ON);
                 }
                 this.component.setBeginReveal(false);
                 this.component.setTrueForm(true);
 
-                if (this.prevTarget != null) {
-                    this.beginTargeting((PlayerEntity) this.prevTarget);
-                    this.prevTarget = null;
+                if (this.prevTarget instanceof PlayerEntity player) {
+                    this.beginTargeting(player);
                 }
+                this.prevTarget = null;
 
                 this.ticks = 0;
             }
@@ -282,18 +287,22 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         }
     }
 
+    private static final ScheduledExecutorService NOTICE_EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "SkinWalker-Notice");
+        t.setDaemon(true);
+        return t;
+    });
+
     public void noticePlayer(PlayerEntity player){
         component.setNoticing(true);
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
         this.playSound(ModSounds.SKINWALKER_NOTICE, 10.0f, 1.0f);
         this.getLookControl().lookAt(player, 360, 360);
 
-        executorService.schedule(() ->{
+        NOTICE_EXECUTOR.schedule(() ->{
             this.getWorld().sendEntityStatus(this, (byte) 123);
             this.setTarget(player);
             component.setNoticing(false);
-            executorService.shutdown();
         }, 4300, TimeUnit.MILLISECONDS);
     }
 
@@ -330,6 +339,11 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
 
             return bl;
         }
+    }
+
+    public void doJump() {
+        if (!this.isOnGround()) return;
+        this.setVelocity(this.getVelocity().add(0, 0.42, 0));
     }
 
     @Override

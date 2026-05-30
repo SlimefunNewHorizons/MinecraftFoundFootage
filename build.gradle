@@ -19,6 +19,7 @@ base {
 //}
 
 repositories {
+	mavenLocal()
 	//Veil
 	maven {
 		name = 'BlameJared Maven (CrT / Bookshelf)'
@@ -110,6 +111,18 @@ dependencies {
 	//Simple Voice Chat
 	implementation "de.maxhenkel.voicechat:voicechat-api:2.5.0"
 	modImplementation "maven.modrinth:simple-voice-chat:fabric-${voicechat_version}"
+
+	//JavaAI - Player input learning
+	implementation "com.javaai:javaai-core:1.0.0"
+	include "com.javaai:javaai-core:1.0.0"
+
+	//VoiceJavaAI - Robotic voice synthesis
+	implementation "com.voicejavaai:voice-java-ai:1.0.0"
+	include "com.voicejavaai:voice-java-ai:1.0.0"
+
+	//JavaChatAI - Conversational AI agent
+	implementation "com.javachatai:java-chat-ai:1.0.0"
+	include "com.javachatai:java-chat-ai:1.0.0"
 
 	//Sound Physics Remastered compat
 	modCompileOnly "maven.modrinth:qyVF9oeo:fabric-1.20.1-1.4.8"

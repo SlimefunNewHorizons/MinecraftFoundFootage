@@ -3,7 +3,6 @@ package com.sp.sounds.voicechat;
 import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
-import com.sp.entity.custom.SkinWalkerEntity;
 import de.maxhenkel.voicechat.api.VoicechatApi;
 import de.maxhenkel.voicechat.api.VoicechatConnection;
 import de.maxhenkel.voicechat.api.VoicechatPlugin;
@@ -11,23 +10,28 @@ import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.api.opus.OpusDecoder;
 import de.maxhenkel.voicechat.voice.common.Utils;
+import de.maxhenkel.voicechat.voice.common.Utils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.util.math.random.Random;
 import org.lwjgl.openal.AL10;
+import org.lwjgl.openal.EXTEfx;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     public static VoicechatServerApi voicechatApi;
     private ConcurrentHashMap<UUID, OpusDecoder> decoders;
     public static ConcurrentHashMap<UUID, Float> speakingTime;
-
     public static Map<UUID, Vector<short[]>> randomSpeakingList;
     private static Map<UUID, short[]> totalSoundData;
     private static Map<UUID, Integer> ticks;
+    private static Map<UUID, Boolean> wasSpeaking;
+
+    public static List<String> lastTranscribedInputs = new CopyOnWriteArrayList<>();
+    private static final int MAX_INPUTS = 20;
 
     @Override
     public String getPluginId() {
@@ -38,14 +42,18 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     public void initialize(VoicechatApi api) {
         decoders = new ConcurrentHashMap<>();
         speakingTime = new ConcurrentHashMap<>();
-        randomSpeakingList = new HashMap<>();
-        ticks = new HashMap<>();
-        totalSoundData = new HashMap<>();
+        randomSpeakingList = new ConcurrentHashMap<>();
+        ticks = new ConcurrentHashMap<>();
+        totalSoundData = new ConcurrentHashMap<>();
+        wasSpeaking = new ConcurrentHashMap<>();
+        lastTranscribedInputs = new CopyOnWriteArrayList<>();
     }
 
     @Override
     public void registerEvents(EventRegistration registration) {
         registration.registerEvent(OpenALSoundEvent.class, this::SkinWalkerVoicesPitchDown);
+        registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, this::processLocationalSound);
+        registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, this::processEntitySound);
         registration.registerEvent(MicrophonePacketEvent.class, this::recordPlayersTalking);
         registration.registerEvent(VoicechatServerStoppedEvent.class, this::onServerStop);
         registration.registerEvent(PlayerDisconnectedEvent.class, this::playerDisconnect);
@@ -71,25 +79,56 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         }
 
         try {
-            List<SkinWalkerEntity> skinWalkerList = client.player.getWorld().getEntitiesByClass(SkinWalkerEntity.class, client.player.getBoundingBox().expand(50), EntityPredicates.VALID_LIVING_ENTITY);
-
-            if (skinWalkerList.isEmpty()) {
-                return;
-            }
-
-            for (SkinWalkerEntity skinWalker : skinWalkerList) {
-                if (!skinWalker.getUuid().equals(channelID)) {
-                    continue;
-                }
-
-                if (skinWalker.component.isInTrueForm()) {
-                    AL10.alSourcei(openALSoundEvent.getSource(), 53248, 53251);
-                    AL10.alSourcef(openALSoundEvent.getSource(), AL10.AL_PITCH, 0.8f);
-                }
-            }
+            int source = openALSoundEvent.getSource();
+            applyRoboticVoiceEffect(source);
         } catch (Exception e) {
-            SPBRevamped.LOGGER.error("Error pitching down the Skinwalker's Voice: {}", String.valueOf(e));
+            SPBRevamped.LOGGER.error("Error applying voice effect: {}", String.valueOf(e));
         }
+    }
+
+    private void applyRoboticVoiceEffect(int source) {
+        AL10.alSourcef(source, AL10.AL_PITCH, 0.78f);
+
+        AL10.alSourcei(source, EXTEfx.AL_DIRECT_FILTER, EXTEfx.AL_FILTER_LOWPASS);
+        AL10.alSourcef(source, EXTEfx.AL_LOWPASS_GAIN, 0.6f);
+        AL10.alSourcef(source, EXTEfx.AL_LOWPASS_GAINHF, 0.25f);
+
+        AL10.alSourcef(source, AL10.AL_GAIN, 1.0f);
+    }
+
+    private void processLocationalSound(ClientReceiveSoundEvent.LocationalSound event) {
+        short[] audio = event.getRawAudio();
+        if (audio == null || audio.length == 0) return;
+        event.setRawAudio(processAudioRobotic(audio));
+    }
+
+    private void processEntitySound(ClientReceiveSoundEvent.EntitySound event) {
+        short[] audio = event.getRawAudio();
+        if (audio == null || audio.length == 0) return;
+        event.setRawAudio(processAudioRobotic(audio));
+    }
+
+    private short[] processAudioRobotic(short[] audio) {
+        short[] processed = new short[audio.length];
+        double pitchFactor = 0.78;
+        int sampleRate = 48000;
+        double pitchShift = pitchFactor;
+
+        for (int i = 0; i < audio.length; i++) {
+            double sample = audio[i] / 32768.0;
+
+            sample *= 0.95;
+
+            double quantize = 0.3;
+            double levels = 1.0 / (quantize + 0.01);
+            sample = Math.round(sample * levels) / levels;
+
+            sample = Math.max(-1.0, Math.min(1.0, sample));
+
+            processed[i] = (short)(sample * 32767);
+        }
+
+        return processed;
     }
 
     private void recordPlayersTalking(MicrophonePacketEvent microphonePacketEvent) {
@@ -125,6 +164,13 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             PlayerComponent component = InitializeComponents.PLAYER.get(player);
             if(!component.shouldBeMuted()) {
                 component.setSpeaking(true);
+
+                boolean prevWasSpeaking = wasSpeaking.getOrDefault(player.getUuid(), false);
+                wasSpeaking.put(player.getUuid(), true);
+
+                if (!prevWasSpeaking) {
+                    detectVoiceInput(player);
+                }
 
                 //Update the amount of time that the players are talking for the skinstealer to determine who to take
                 if(!player.isSpectator() && !player.isCreative()) {
@@ -167,28 +213,50 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             return;
         }
 
-        decoders.get(player.getUuid()).resetState();
+        wasSpeaking.put(player.getUuid(), false);
 
-        if (ticks.get(player.getUuid()) > 40  && ticks.get(player.getUuid()) < 200) {
+        if (decoders.containsKey(player.getUuid())) {
+            OpusDecoder decoder = decoders.get(player.getUuid());
+            if (decoder != null) {
+                decoder.resetState();
+            }
+        }
+
+        if (ticks.get(player.getUuid()) != null && ticks.get(player.getUuid()) > 40  && ticks.get(player.getUuid()) < 200) {
             Random random = Random.create();
 
-            Vector<short[]> soundList = new Vector<>();
+            Vector<short[]> soundList = randomSpeakingList.getOrDefault(player.getUuid(), new Vector<>());
 
-            if (randomSpeakingList.containsKey(player.getUuid())) {
-                soundList = randomSpeakingList.getOrDefault(player.getUuid(), new Vector<>());
+            if (totalSoundData.containsKey(player.getUuid()) && totalSoundData.get(player.getUuid()) != null) {
+                if (soundList.size() < 20) {
+                    soundList.add(totalSoundData.get(player.getUuid()));
+                } else if (soundList.size() > 0) {
+                    soundList.set(random.nextBetween(0, soundList.size() - 1), totalSoundData.get(player.getUuid()));
+                }
+
+                randomSpeakingList.put(player.getUuid(), soundList);
             }
-
-            if (soundList.size() < 20) {
-                soundList.add(totalSoundData.get(player.getUuid()));
-            } else {
-                soundList.set(random.nextBetween(0, randomSpeakingList.size() - 1), totalSoundData.get(player.getUuid()));
-            }
-
-            randomSpeakingList.put(player.getUuid(), soundList);
         }
 
         ticks.put(player.getUuid(), 0);
         totalSoundData.remove(player.getUuid());
+    }
+
+    private void detectVoiceInput(PlayerEntity player) {
+        if (lastTranscribedInputs.size() >= MAX_INPUTS) {
+            lastTranscribedInputs.remove(0);
+        }
+        String input = "voice_" + player.getName().getString().toLowerCase();
+        lastTranscribedInputs.add(input);
+    }
+
+    public static void receiveChatInput(String playerName, String message) {
+        if (message == null || message.trim().isEmpty()) return;
+        if (lastTranscribedInputs.size() >= MAX_INPUTS) {
+            lastTranscribedInputs.remove(0);
+        }
+        String input = playerName.toLowerCase() + ": " + message.toLowerCase().trim();
+        lastTranscribedInputs.add(input);
     }
 
     private void onServerStart(VoicechatServerStartedEvent voicechatServerStartedEvent) {

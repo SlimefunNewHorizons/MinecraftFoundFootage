@@ -86,6 +86,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private boolean talkingTooLoud;
     private int talkingTooLoudTimer;
     private GameMode prevGameMode;
+    private String skinWalkerLang = "auto";
 
     public MovingSoundInstance DeepAmbience;
     public MovingSoundInstance GasPipeAmbience;
@@ -325,6 +326,9 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.prevGameMode = prevGameMode;
     }
 
+    public String getSkinWalkerLang() { return skinWalkerLang; }
+    public void setSkinWalkerLang(String lang) { this.skinWalkerLang = lang; }
+
     public boolean canSeeActiveSkinWalkerTarget() {return canSeeActiveSkinWalker;}
     public void setCanSeeActiveSkinWalkerTarget(boolean canSeeActiveSkinWalker) {this.canSeeActiveSkinWalker = canSeeActiveSkinWalker;}
 
@@ -359,6 +363,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.shouldGlitch = tag.getBoolean("shouldGlitch");
         this.shouldInflictGlitchDamage = tag.getBoolean("shouldInflictGlitchDamage");
         this.teleportingTimer = tag.getInt("teleportingTimer");
+        this.skinWalkerLang = tag.contains("skinWalkerLang") ? tag.getString("skinWalkerLang") : "auto";
 
         this.playerSavedMainInventory.readNbtList(tag.getList("inventory", NbtElement.COMPOUND_TYPE));
         this.playerSavedOffhandInventory.readNbtList(tag.getList("inventoryOffHand", NbtElement.COMPOUND_TYPE));
@@ -381,6 +386,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("shouldGlitch", this.shouldGlitch);
         tag.putBoolean("shouldInflictGlitchDamage", this.shouldInflictGlitchDamage);
         tag.putInt("teleportingTimer", this.teleportingTimer);
+        tag.putString("skinWalkerLang", this.skinWalkerLang);
 
         if (BackroomsLevels.isInBackrooms(this.player.getWorld().getRegistryKey())) {
             tag.put("inventory", this.playerSavedMainInventory.toNbtList());
