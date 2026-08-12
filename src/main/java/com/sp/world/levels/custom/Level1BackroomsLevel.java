@@ -51,6 +51,7 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
             return playerList;
         }, this.getLevelId() + "->" + BackroomsLevels.LEVEL2_BACKROOMS_LEVEL.getLevelId());
 
+        /*
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
             BlockState state = world.getBlockState(playerComponent.player.getBlockPos().subtract(new Vec3i(0, 2, 0)));
@@ -69,6 +70,8 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
 
             return playerList;
         }, this.getLevelId() + "->" + BackroomsLevels.LEVEL324_BACKROOMS_LEVEL.getLevelId());
+
+         */
     }
 
 

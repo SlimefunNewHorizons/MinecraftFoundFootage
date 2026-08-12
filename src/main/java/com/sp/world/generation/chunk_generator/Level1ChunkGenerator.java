@@ -98,7 +98,7 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
                                 structurePlacementData, random, 2
                         );
                     }
-                } else {
+                }/* else {
                     Identifier roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level1/stairwell324_1");
                     Optional<StructureTemplate> stairwellStructureOutTo324 = structureTemplateManager.getTemplate(roomIdentifier);
 
@@ -110,7 +110,7 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
                                 structurePlacementData, random, 2
                         );
                     }
-                }
+                }*/
             }
         }
 
