@@ -158,4 +158,10 @@
 
   "spb-revamped.flashlight.wet1": "Sua lanterna molhou. ",
   "spb-revamped.flashlight.wet2": "Ela não funciona mais."
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "Este mod usa modelos de voz e de IA externos que são baixados na primeira vez em que são usados.\n\nAo aceitar, você concorda em baixar e instalar os modelos de voz e de IA externos do mod.\n\nVocê aceita o download dos modelos de voz e de IA externos do mod?",
+  "ai.consent.accept": "Aceitar",
+  "ai.consent.decline": "Recusar",
+  "ai.consent.note": "Se recusar, o jogo será fechado."
 }

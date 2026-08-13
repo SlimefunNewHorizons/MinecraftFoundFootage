@@ -153,4 +153,10 @@
 
   "spb-revamped.flashlight.wet1": "Votre lampe torche est mouillée.",
   "spb-revamped.flashlight.wet2": "Elle ne fonctionne plus"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "Ce mod utilise des modèles vocaux et d'IA externes qui sont téléchargés lors de leur première utilisation.\n\nEn acceptant, vous acceptez de télécharger et d'installer les modèles vocaux et d'IA externes du mod.\n\nAcceptez-vous le téléchargement des modèles vocaux et d'IA externes du mod ?",
+  "ai.consent.accept": "Accepter",
+  "ai.consent.decline": "Refuser",
+  "ai.consent.note": "Si vous refusez, le jeu se fermera."
 }

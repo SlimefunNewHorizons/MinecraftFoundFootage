@@ -144,4 +144,10 @@
 
   "spb-revamped.flashlight.wet1": "La teva llanterna s’ha mullat.",
   "spb-revamped.flashlight.wet2": "Ja no funciona"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "Aquest mod utilitza models de veu i d'IA externs que es descarreguen la primera vegada que s'utilitzen.\n\nEn acceptar, acceptes descarregar i instal·lar els models de veu i d'IA externs del mod.\n\nAcceptes la descàrrega dels models de veu i d'IA externs del mod?",
+  "ai.consent.accept": "Acceptar",
+  "ai.consent.decline": "Rebutjar",
+  "ai.consent.note": "Si rebutges, el joc es tancarà."
 }

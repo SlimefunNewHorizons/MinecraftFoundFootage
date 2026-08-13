@@ -63,6 +63,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private boolean flashLightOn;
     private boolean shouldRender;
     private boolean isDoingCutscene;
+    private boolean acceptedAIModels;
     private boolean playingGlitchSound;
     private boolean shouldNoClip;
     private int teleportingTimer;
@@ -120,6 +121,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.shouldDoStatic = false;
 
         this.isDoingCutscene = false;
+        this.acceptedAIModels = false;
 
         this.isBeingCaptured = false;
         this.hasBeenCaptured = false;
@@ -248,6 +250,13 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         isDoingCutscene = doingCutscene;
     }
 
+    public boolean hasAcceptedAIModels() {
+        return acceptedAIModels;
+    }
+    public void setAcceptedAIModels(boolean acceptedAIModels) {
+        this.acceptedAIModels = acceptedAIModels;
+    }
+
     public boolean isTeleportingToPoolrooms() {
         BackroomsLevel level = BackroomsLevels.getLevel(this.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL);
         return (level instanceof Level2BackroomsLevel || level instanceof Level324Backroomslevel) && this.teleportingTimer > 0;
@@ -353,6 +362,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.flashLightOn = tag.getBoolean("flashLightOn");
         this.shouldRender = tag.getBoolean("shouldRender");
         this.isDoingCutscene = tag.getBoolean("isDoingCutscene");
+        this.acceptedAIModels = tag.getBoolean("acceptedAIModels");
         this.playingGlitchSound = tag.getBoolean("playingGlitchSound");
         this.shouldNoClip = tag.getBoolean("shouldNoClip");
         this.shouldDoStatic = tag.getBoolean("shouldDoStatic");
@@ -376,6 +386,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("flashLightOn", this.flashLightOn);
         tag.putBoolean("shouldRender", this.shouldRender);
         tag.putBoolean("isDoingCutscene", this.isDoingCutscene);
+        tag.putBoolean("acceptedAIModels", this.acceptedAIModels);
         tag.putBoolean("playingGlitchSound", this.playingGlitchSound);
         tag.putBoolean("shouldNoClip", this.shouldNoClip);
         tag.putBoolean("shouldDoStatic", this.shouldDoStatic);
@@ -572,7 +583,16 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                     this.playingGlitchSound = true;
                 }
 
-                if (suffocationTimer == 40) {
+                if (suffocationTimer >= 40) {
+                    if (!this.acceptedAIModels) {
+                        //The player has not accepted the download of the mod's voice and AI models yet.
+                        //Ask the client to show the consent GUI instead of teleporting into the backrooms.
+                        if (suffocationTimer == 40) {
+                            SPBRevamped.sendConsentScreenPacket((ServerPlayerEntity) this.player);
+                        }
+                        return false;
+                    }
+
                     RegistryKey<World> registryKey = BackroomsLevels.LEVEL0_WORLD_KEY;
                     ServerWorld backrooms = this.player.getWorld().getServer().getWorld(registryKey);
                     if (backrooms == null) {

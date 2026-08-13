@@ -167,4 +167,10 @@
 
   "spb-revamped.flashlight.wet1": "Your flashlight got wet. ",
   "spb-revamped.flashlight.wet2": "It no longer works"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "This mod uses external voice and AI models that are downloaded the first time they are used.\n\nBy accepting, you agree to download and install the mod's external voice and AI models.\n\nDo you accept the download of the mod's external voice and AI models?",
+  "ai.consent.accept": "Accept",
+  "ai.consent.decline": "Decline",
+  "ai.consent.note": "If you decline, the game will close."
 }

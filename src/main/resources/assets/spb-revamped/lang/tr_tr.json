@@ -161,4 +161,10 @@
 
   "spb-revamped.flashlight.wet1": "El fenerin ıslandı. ",
   "spb-revamped.flashlight.wet2": "Artık çalışmıyor"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "Bu mod, ilk kullanıldığında indirilen harici ses ve yapay zeka modellerini kullanır.\n\nKabul ederek, modun harici ses ve yapay zeka modellerini indirmeyi ve kurmayı kabul edersiniz.\n\nModun harici ses ve yapay zeka modellerinin indirilmesini kabul ediyor musunuz?",
+  "ai.consent.accept": "Kabul Et",
+  "ai.consent.decline": "Reddet",
+  "ai.consent.note": "Reddederseniz oyun kapanacaktır."
 }

@@ -144,6 +144,11 @@ public class SPBRevamped implements ModInitializer {
 		ServerPlayNetworking.send(player, InitializePackets.BLACK_SCREEN, buffer);
 	}
 
+	public static void sendConsentScreenPacket(ServerPlayerEntity player){
+		PacketByteBuf buffer = PacketByteBufs.create();
+		ServerPlayNetworking.send(player, InitializePackets.OPEN_CONSENT_SCREEN, buffer);
+	}
+
 	public static void sendPersonalPlaySoundPacket(ServerPlayerEntity player, SoundEvent sound, float volume, float pitch){
 		PacketByteBuf buffer = PacketByteBufs.create();
 		buffer.writeRegistryEntry(Registries.SOUND_EVENT.getIndexedEntries(), RegistryEntry.of(sound), (packetByteBuf, soundEvent) -> soundEvent.writeBuf(packetByteBuf));

@@ -19,12 +19,14 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.HelpfulHintManager;
 import com.sp.init.ModSounds;
 import com.sp.networking.InitializePackets;
+import com.sp.render.gui.AcceptAIModelsScreen;
 import com.sp.sounds.*;
 import com.sp.sounds.entity.SkinWalkerChaseSoundInstance;
 import com.sp.sounds.entity.SmilerAmbienceSoundInstance;
 import com.sp.sounds.entity.SmilerGlitchSoundInstance;
 import com.sp.sounds.pipes.GasPipeSoundInstance;
 import com.sp.sounds.pipes.WaterPipeSoundInstance;
+import com.sp.util.AIConsentStore;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.BackroomsLevelWithLights;
 import com.sp.world.levels.custom.Level1BackroomsLevel;
@@ -347,8 +349,12 @@ public class ClientWrapper {
             if (playerComponent.player.isInsideWall() && playerComponent.player.getWorld().getRegistryKey() == World.OVERWORLD && !playerComponent.isDoingCutscene()) {
                 playerComponent.suffocationTimer++;
                 if (playerComponent.suffocationTimer >= 40) {
-                    playerComponent.setDoingCutscene(true);
                     playerComponent.suffocationTimer = 0;
+                    if (playerComponent.hasAcceptedAIModels() || AIConsentStore.hasAccepted()) {
+                        playerComponent.setDoingCutscene(true);
+                    } else if (MinecraftClient.getInstance().currentScreen == null) {
+                        MinecraftClient.getInstance().setScreen(new AcceptAIModelsScreen());
+                    }
                 }
             }
 

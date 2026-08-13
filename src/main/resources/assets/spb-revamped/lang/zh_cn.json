@@ -158,4 +158,10 @@
 
   "spb-revamped.flashlight.wet1": "手电筒进水了  ",
   "spb-revamped.flashlight.wet2": "它失效了"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "此模组使用首次使用时下载的外部语音和AI模型。\n\n接受即表示您同意下载并安装模组的外部语音和AI模型。\n\n您是否接受下载模组的外部语音和AI模型？",
+  "ai.consent.accept": "接受",
+  "ai.consent.decline": "拒绝",
+  "ai.consent.note": "如果拒绝，游戏将关闭。"
 }

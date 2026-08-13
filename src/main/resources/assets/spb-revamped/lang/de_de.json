@@ -160,5 +160,11 @@
 
   "spb-revamped.flashlight.wet1": "Deine Taschenlampe wurde nass. ",
   "spb-revamped.flashlight.wet2": "Sie funktioniert jetzt nicht mehr"
+,
+  "ai.consent.title": "Minecraft Found Footage",
+  "ai.consent.body": "Dieses Mod verwendet externe Sprach- und KI-Modelle, die bei der ersten Verwendung heruntergeladen werden.\n\nMit der Annahme stimmst du zu, die externen Sprach- und KI-Modelle des Mods herunterzuladen und zu installieren.\n\nAkzeptierst du den Download der externen Sprach- und KI-Modelle des Mods?",
+  "ai.consent.accept": "Akzeptieren",
+  "ai.consent.decline": "Ablehnen",
+  "ai.consent.note": "Wenn du ablehnst, wird das Spiel geschlossen."
 }
 

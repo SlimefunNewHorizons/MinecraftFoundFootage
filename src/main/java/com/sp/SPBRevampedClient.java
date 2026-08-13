@@ -22,10 +22,12 @@ import com.sp.render.bird.FlockManager;
 import com.sp.render.camera.CameraShake;
 import com.sp.render.camera.CutsceneManager;
 import com.sp.render.grass.GrassRenderer;
+import com.sp.render.gui.AcceptAIModelsScreen;
 import com.sp.render.gui.StaminaBar;
 import com.sp.render.gui.TitleText;
 import com.sp.render.pbr.BlockIdMap;
 import com.sp.render.pbr.PbrRegistry;
+import com.sp.util.AIConsentStore;
 import com.sp.util.MathStuff;
 import com.sp.util.TickTimer;
 import com.sp.world.levels.BackroomsLevel;
@@ -464,6 +466,12 @@ public class SPBRevampedClient implements ClientModInitializer {
                     }
                 }));
 
+                if (AIConsentStore.hasAccepted()) {
+                    PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
+                    playerComponent.setAcceptedAIModels(true);
+                    ClientPlayNetworking.send(InitializePackets.ACCEPT_AI_MODELS, PacketByteBufs.create());
+                }
+
             }
 
         }));
@@ -489,6 +497,12 @@ public class SPBRevampedClient implements ClientModInitializer {
             if (this.birdRenderer != null) {
                 this.birdRenderer.close();
                 this.birdRenderer = null;
+            }
+        });
+
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
+            if (!AIConsentStore.hasAccepted()) {
+                client.setScreen(new AcceptAIModelsScreen());
             }
         });
 
