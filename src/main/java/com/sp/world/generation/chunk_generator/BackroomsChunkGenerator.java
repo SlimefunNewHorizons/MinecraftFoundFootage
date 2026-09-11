@@ -6,6 +6,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.server.dedicated.MinecraftDedicatedServer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.Heightmap;
@@ -52,6 +53,15 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
      */
     public int getPlacementRadius() {
         return placementRadius;
+    }
+
+    /**
+     * Deterministic per-chunk seed so the same chunk always generates the same layout,
+     * no matter when or in which order it gets generated.
+     */
+    protected long getChunkSeed(StructureWorldAccess world, Chunk chunk) {
+        ChunkPos pos = chunk.getPos();
+        return world.toServerWorld().getSeed() ^ ChunkPos.toLong(pos.x, pos.z);
     }
 
 

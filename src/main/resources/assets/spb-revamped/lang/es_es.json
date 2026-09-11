@@ -18,7 +18,8 @@
   "block.spb-revamped.carpet_block": "Bloque de Moqueta",
   "block.spb-revamped.rug1": "Alfombra 1",
   "block.spb-revamped.rug2": "Alfombra 2",
-
+  "block.spb-revamped.sign_pole": "Poste de Señal",
+  "block.spb-revamped.stop_sign": "Señal de Alto",
   "block.spb-revamped.wooden_crate": "Caja de Madera",
   "container.spb-revamped.wooden_crate": "Caja de Madera",
 
@@ -123,6 +124,8 @@
   "death.attack.acid": "¡%1$s se quemó con ácido!",
   "death.attack.smiler": "¡%1$s fue asesinado por un Smiler!",
   "death.attack.skin_walker": "¡%1$s fue asesinado por un Skin Walker!",
+  "death.attack.paper_police": "¡%1$s fue silenciado por el Policía de Papel!",
+  "entity.spb-revamped.paper_police": "Policía de Papel",
 
   "spb-revamped.keybinds": "SPB-Revamped",
   "key.spb-revamped.toggle_flashlight": "Alternar Linterna",

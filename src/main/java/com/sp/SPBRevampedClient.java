@@ -9,8 +9,10 @@ import com.sp.cca_stuff.WorldEvents;
 import com.sp.compat.modmenu.ConfigDefinitions;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.entity.client.model.SmilerModel;
+import com.sp.entity.client.model.PaperPoliceModel;
 import com.sp.entity.client.renderer.SkinWalkerRenderer;
 import com.sp.entity.client.renderer.SmilerRenderer;
+import com.sp.entity.client.renderer.PaperPoliceRenderer;
 import com.sp.entity.client.renderer.WalkerRenderer;
 import com.sp.init.*;
 import com.sp.networking.InitializePackets;
@@ -33,6 +35,7 @@ import com.sp.util.TickTimer;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.custom.InfiniteGrassBackroomsLevel;
 import com.sp.world.levels.custom.Level2BackroomsLevel;
+import com.sp.world.levels.custom.Level94BackroomsLevel;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
 import de.maxhenkel.voicechat.voice.client.ClientManager;
 import foundry.veil.api.client.render.VeilRenderSystem;
@@ -156,8 +159,10 @@ public class SPBRevampedClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.SKIN_WALKER_ENTITY, SkinWalkerRenderer::new);
         EntityRendererRegistry.register(ModEntities.WALKER_ENTITY, WalkerRenderer::new);
         EntityRendererRegistry.register(ModEntities.SMILER_ENTITY, SmilerRenderer::new);
+        EntityRendererRegistry.register(ModEntities.PAPER_POLICE_ENTITY, PaperPoliceRenderer::new);
 
         EntityModelLayerRegistry.registerModelLayer(ModModelLayers.SMILER, SmilerModel::getTexturedModelData);
+        EntityModelLayerRegistry.registerModelLayer(ModModelLayers.PAPER_POLICE, PaperPoliceModel::getTexturedModelData);
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
             @Override
@@ -231,7 +236,8 @@ public class SPBRevampedClient implements ClientModInitializer {
                     }
                 }
 
-                if (clientWorld.getRegistryKey() == BackroomsLevels.INFINITE_FIELD_WORLD_KEY) {
+                if (clientWorld.getRegistryKey() == BackroomsLevels.INFINITE_FIELD_WORLD_KEY
+                        || clientWorld.getRegistryKey() == BackroomsLevels.LEVEL94_WORLD_KEY) {
                     if (stage == Stage.AFTER_SOLID_BLOCKS) {
                         if (this.grassRenderer == null) {
                             this.grassRenderer = new GrassRenderer();
@@ -578,7 +584,8 @@ public class SPBRevampedClient implements ClientModInitializer {
                     }
 
                     getCurrentBackroomsLevel().ifPresent((backroomsLevel -> {
-                        if ((backroomsLevel instanceof InfiniteGrassBackroomsLevel/* || backroomsLevel instanceof Level324Backroomslevel*/) && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
+                        if ((backroomsLevel instanceof InfiniteGrassBackroomsLevel
+                                || backroomsLevel instanceof Level94BackroomsLevel) && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
                             FlockManager.tick();
                         }
                     }));

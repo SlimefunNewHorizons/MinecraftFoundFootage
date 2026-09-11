@@ -39,7 +39,8 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
     }
 
     @Override
-    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
+    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms, Random random) {
+        this.random = random;
         BlockPos.Mutable mutable = new BlockPos.Mutable();
 
         //Generate Maze
@@ -106,7 +107,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
         for (MazeCell[] cell : grid){
             for(MazeCell cells: cell){
                 if (cells != null) {
-                    cells.drawWallsWithDoors(world, this.levelDirectory);
+                    cells.drawWallsWithDoors(world, this.levelDirectory, this.random);
                 }
             }
         }
@@ -189,8 +190,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
 
 
         if (!neighbors.isEmpty()){
-            Random random = Random.create();
-            int r = random.nextBetween(0, neighbors.size() - 1);
+            int r = this.random.nextBetween(0, neighbors.size() - 1);
             lastRoomDir = roomDir.get(r);
             return neighbors.get(r);
         }
@@ -203,7 +203,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
 
     @Override
     public void removeWalls(MazeCell currentCell, MazeCell neighbor){
-        Random random = Random.create();
+        Random random = this.random;
 
 
         if(currentCell.getGridPosX() - neighbor.getGridPosX() != 0){

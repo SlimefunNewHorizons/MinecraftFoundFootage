@@ -43,7 +43,7 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
     public void generate(StructureWorldAccess world, Chunk chunk) {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
-        Random random = Random.create();
+        Random random = Random.create(this.getChunkSeed(world, chunk));
 
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         MinecraftServer server = world.getServer();
@@ -96,7 +96,7 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                             mutable.set(x, 18, z),
                             structurePlacementData, random, 2);
                 }
-            } else if (((float) chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float) chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0) {
+            } else if (Math.floorMod(chunk.getPos().x, SPBRevamped.FINAL_MAZE_SIZE) == 0 && Math.floorMod(chunk.getPos().z, SPBRevamped.FINAL_MAZE_SIZE) == 0) {
 
 
                 if(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world))) {
@@ -154,19 +154,19 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                                         mutable.set(x - 16, 18, z - 16),
                                         structurePlacementData, random, 2);
                                 Level0MazeGenerator level0MazeGenerator = new Level0MazeGenerator(16, 5, 5, x, z, "level0");
-                                level0MazeGenerator.setup(world, false, false, false);
+                                level0MazeGenerator.setup(world, false, false, false, random);
                             }
                         }
                     } else {
 
                         Level0MazeGenerator level0MazeGenerator = new Level0MazeGenerator(16, 5, 5, x, z, "level0");
-                        level0MazeGenerator.setup(world, false, false, false);
+                        level0MazeGenerator.setup(world, false, false, false, random);
 
                     }
                 } else {
 
                     Level0MazeGenerator level0MazeGenerator = new Level0MazeGenerator(16, 5, 5, x, z, "level0");
-                    level0MazeGenerator.setup(world, false, false, false);
+                    level0MazeGenerator.setup(world, false, false, false, random);
                 }
             }
 
@@ -174,8 +174,8 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
             ////Code for 8 x 8 Roof////
             for(int i = 0; i < 2; i++) {
                 for(int j = 0; j < 2; j++) {
-                    roomIdentifier = this.getRoof();
-                    structurePlacementData = this.randRotation();
+                    roomIdentifier = this.getRoof(random);
+                    structurePlacementData = this.randRotation(random);
                     optional = structureTemplateManager.getTemplate(roomIdentifier);
 
                     if (optional.isPresent()) {
@@ -211,8 +211,7 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
         return near;
     }
 
-    public Identifier getRoof(){
-        Random random = Random.create();
+    public Identifier getRoof(Random random){
         int roofNumber = random.nextBetween(1,5);
 
         if (roofNumber == 1){
@@ -225,9 +224,8 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
 
     }
 
-    public StructurePlacementData randRotation(){
+    public StructurePlacementData randRotation(Random random){
         StructurePlacementData structurePlacementData = new StructurePlacementData();
-        Random random = Random.create();
         int rot = random.nextBetween(1,2);
 
         if(rot == 1){

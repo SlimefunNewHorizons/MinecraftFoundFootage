@@ -117,4 +117,10 @@ public class ConfigStuff extends MidnightConfig {
     @Entry(category = SERVER, min = 200, max = 1000)
     public static int exitSpawnRadius = 300;
 
+    @Entry(category = SERVER)
+    public static boolean sttEnabled = true;
+
+    @Entry(category = SERVER)
+    public static String sttModelId = "alphacephei/vosk-model-small-es-0.42";
+
 }

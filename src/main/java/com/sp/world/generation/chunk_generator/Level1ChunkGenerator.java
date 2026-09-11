@@ -35,17 +35,18 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(Level1ChunkGenerator::new))
     );
     private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
-    PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
     public Level1ChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        super(biomeSource, 4);
         this.settings = settings;
     }
 
     public void generate(StructureWorldAccess world, Chunk chunk) {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
+
+        Random random = Random.create(this.getChunkSeed(world, chunk));
+        PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         MinecraftServer server = world.getServer();
@@ -68,7 +69,7 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
             }
 
             Level1MazeGenerator level1MazeGenerator = new Level1MazeGenerator(8, 10, 10, x, z, "level1");
-            level1MazeGenerator.setup(world, false, false, false);
+            level1MazeGenerator.setup(world, false, false, false, random);
             return;
         }
 
@@ -151,7 +152,7 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
             } else {
                 if (world.getBlockState(mutable.set(x, 19, z)) != Blocks.RED_WOOL.getDefaultState()) {
                     Level1MazeGenerator level1MazeGenerator = new Level1MazeGenerator(8, 10, 10, x, z, "level1");
-                    level1MazeGenerator.setup(world, false, false, true);
+                    level1MazeGenerator.setup(world, false, false, true, random);
                 }
             }
 
@@ -160,16 +161,16 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
 
         if (world.getBlockState(mutable.set(x, 19, z)) != Blocks.RED_WOOL.getDefaultState()) {
             Level1MazeGenerator level1MazeGenerator = new Level1MazeGenerator(8, 10, 10, x, z, "level1");
-            level1MazeGenerator.setup(world, false, false, true);
+            level1MazeGenerator.setup(world, false, false, true, random);
         }
     }
 
     private static boolean isStartChunk(Chunk chunk) {
-        return (float) chunk.getPos().x == 0 && (float) chunk.getPos().z == 0;
+        return chunk.getPos().x == 0 && chunk.getPos().z == 0;
     }
 
     private static boolean isOnMazeGrid(Chunk chunk) {
-        return ((float) chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float) chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0;
+        return Math.floorMod(chunk.getPos().x, SPBRevamped.FINAL_MAZE_SIZE) == 0 && Math.floorMod(chunk.getPos().z, SPBRevamped.FINAL_MAZE_SIZE) == 0;
     }
 
     protected Codec<? extends ChunkGenerator> getCodec() {

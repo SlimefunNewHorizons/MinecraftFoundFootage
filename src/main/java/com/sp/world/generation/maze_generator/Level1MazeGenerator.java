@@ -46,7 +46,8 @@ public class Level1MazeGenerator extends MazeGenerator {
     }
 
     @Override
-    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
+    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms, Random random) {
+        this.random = random;
         BlockPos.Mutable mutable = new BlockPos.Mutable();
 
         if(spawnRandomRooms) {
@@ -117,7 +118,7 @@ public class Level1MazeGenerator extends MazeGenerator {
         for (MazeCell[] cell : grid){
             for(MazeCell cells: cell){
                 if(cells != null) {
-                    cells.drawWalls(world, this.levelDirectory);
+                    cells.drawWalls(world, this.levelDirectory, this.random);
                 }
             }
         }
@@ -173,8 +174,7 @@ public class Level1MazeGenerator extends MazeGenerator {
         }
 
         if (!neighbors.isEmpty()) {
-            Random random = Random.create();
-            int r = random.nextBetween(0, neighbors.size() - 1);
+            int r = this.random.nextBetween(0, neighbors.size() - 1);
             return neighbors.get(r);
         }
         else{
@@ -211,7 +211,7 @@ public class Level1MazeGenerator extends MazeGenerator {
     public void spawnRandomRooms(StructureWorldAccess world, int x, int z) {
         if (world.getServer() != null) {
             boolean place = true;
-            Random random = Random.create();
+            Random random = this.random;
             BlockPos.Mutable mutable = new BlockPos.Mutable();
             StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
             Optional<StructureTemplate> optional;

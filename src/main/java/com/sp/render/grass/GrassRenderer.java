@@ -224,6 +224,7 @@ public class GrassRenderer {
 
             float maxDist = numOfInst / (ConfigStuff.grassQuality.getDensity() * 1.85f);
             shader.setFloat("maxDist", maxDist);
+            shader.setInt("isLevel94", SPBRevampedClient.isInLevel(BackroomsLevels.LEVEL94_BACKROOMS_LEVEL) ? 1 : 0);
 
             Vector4fc[] planes = VeilRenderer.getCullingFrustum().getPlanes();
             float[] values = new float[4 * planes.length];

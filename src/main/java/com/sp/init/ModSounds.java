@@ -106,6 +106,8 @@ public class ModSounds {
 
     public static final SoundEvent SCREECH_SOUNDEVENT_FAR = registerSoundEvent("walker_screech");
 
+    public static final SoundEvent TEST_VOICE = registerSoundEvent("test_voice");
+
     private static SoundEvent registerSoundEvent(String name) {
         Identifier id = new Identifier(SPBRevamped.MOD_ID, name);
         return Registry.register(Registries.SOUND_EVENT, id, SoundEvent.of(id));

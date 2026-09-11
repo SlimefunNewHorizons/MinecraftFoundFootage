@@ -38,7 +38,7 @@ public class LevelCommand {
 
                                 if (entity instanceof PlayerEntity player) {
 
-                                    TeleportTarget target = new TeleportTarget(backroomsLevel.getSpawnPos(), Vec3d.ZERO, 0, 90);
+                                    TeleportTarget target = new TeleportTarget(backroomsLevel.getSafeSpawnPos(), Vec3d.ZERO, 0, 90);
                                     FabricDimensions.teleport(player, context.getSource().getWorld().getServer().getWorld(backroomsLevel.getWorldKey()), target);
                                 }
 

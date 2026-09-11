@@ -15,6 +15,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.Vec3i;
@@ -157,6 +158,13 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
     @Override
     public void transitionIn(CrossDimensionTeleport crossDimensionTeleport) {
 
+    }
+
+    @Override
+    public BlockPos findCheckpoint(Vec3d pos) {
+        int gridX = Math.floorDiv((int) pos.x, 80) * 80;
+        int gridZ = Math.floorDiv((int) pos.z, 80) * 80;
+        return new BlockPos(gridX + 12, 22, gridZ + 12);
     }
 
     public void setLightState(Level0BackroomsLevel.LightState lightState) {

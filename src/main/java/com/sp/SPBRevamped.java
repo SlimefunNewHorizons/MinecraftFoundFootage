@@ -6,7 +6,9 @@ import com.sp.command.EventCommand;
 import com.sp.command.GimmeMyInventoryBack;
 import com.sp.command.LevelCommand;
 import com.sp.command.SkinwalkerCommand;
+import com.sp.command.VoiceChatTestCommand;
 import com.sp.compat.modmenu.ConfigStuff;
+import com.sp.entity.custom.PaperPoliceEntity;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.custom.SmilerEntity;
 import com.sp.entity.ik.model.GeckoLib.MowzieModelFactory;
@@ -75,6 +77,7 @@ public class SPBRevamped implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register(LevelCommand::register);
 		CommandRegistrationCallback.EVENT.register(GimmeMyInventoryBack::register);
 		CommandRegistrationCallback.EVENT.register(SkinwalkerCommand::register);
+		CommandRegistrationCallback.EVENT.register(VoiceChatTestCommand::register);
 
 		// Thanks Bob Mowzie
 		GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory());
@@ -84,6 +87,7 @@ public class SPBRevamped implements ModInitializer {
 
 		FabricDefaultAttributeRegistry.register(ModEntities.SKIN_WALKER_ENTITY, SkinWalkerEntity.createSkinWalkerAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.SMILER_ENTITY, SmilerEntity.createSmilerAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.PAPER_POLICE_ENTITY, PaperPoliceEntity.createPaperPoliceAttributes());
 
 		LOGGER.info("\"WOOOOOOOOOOOOOOOOOOOOOOOooooooooooooooooooooooooo..........\" -He said as he fell into the backrooms, never to be seen again.");
 

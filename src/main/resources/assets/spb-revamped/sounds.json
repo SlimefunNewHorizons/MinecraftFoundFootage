@@ -402,5 +402,10 @@
     "sounds": [
       "spb-revamped:walker/walker-start-screech"
     ]
+  },
+  "test_voice": {
+    "sounds": [
+      "spb-revamped:flashlight_click"
+    ]
   }
 }

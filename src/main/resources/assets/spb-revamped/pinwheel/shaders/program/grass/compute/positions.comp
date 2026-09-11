@@ -32,6 +32,7 @@ uniform int NumOfInstances;
 uniform float density;
 uniform float maxDist;
 uniform float FrustumPlanes[24];
+uniform int isLevel94;
 
 shared int sharedGrassBladeCount;
 
@@ -64,12 +65,14 @@ void main() {
     float z = (floor(instanceID / NumOfInstances) - halfInstances);
 
     vec3 offset = vec3(x/density, 31, z/density);
-
-
     #ifdef LEVEL324
     offset = vec3(x/density, (31+34), z/density);
     #endif
-
+        if (isLevel94 == 1) {
+        // Simple height function matching terrain generation for Level94
+        float terrainY = 31.0 + 10.0 * sin(0.1 * (x + z));
+        offset.y = terrainY;
+    }
     vec3 WorldPos = offset - cameraPos;
 
     memoryBarrierShared();

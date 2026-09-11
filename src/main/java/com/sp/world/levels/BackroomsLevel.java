@@ -12,6 +12,7 @@ import net.minecraft.registry.RegistryKey;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
@@ -31,6 +32,8 @@ public abstract class BackroomsLevel {
     private boolean shouldSync = false;
     private final HashMap<String, Supplier<AbstractEvent>> events = new HashMap<>();
     private final HashMap<String, LevelTransitionCriteriaCallback> transitions = new HashMap<>();
+    private final Map<BackroomsLevel, RouteType> connections = new LinkedHashMap<>();
+    private BackroomsLevel fallbackBackroomsLevel;
 
     public BackroomsLevel(String levelId, Codec<? extends ChunkGenerator> chunkGenerator, Vec3d spawnPos, RegistryKey<World> worldKey) {
         this(levelId, chunkGenerator, null, spawnPos, worldKey, SPBRevamped.MOD_ID);
@@ -72,6 +75,14 @@ public abstract class BackroomsLevel {
 
     public Vec3d getSpawnPos() {
         return spawnPos;
+    }
+
+    /**
+     * Returns a safe spawn position slightly above the default spawn to avoid
+     * immediate damage (suffocation, collision) after a level transition.
+     */
+    public Vec3d getSafeSpawnPos() {
+        return new Vec3d(spawnPos.x, spawnPos.y + 2, spawnPos.z);
     }
 
     public Optional<RoomCount> getRoomCount() {
@@ -132,8 +143,9 @@ public abstract class BackroomsLevel {
     public List<LevelTransition> checkForTransition(PlayerComponent playerComponent, World world) {
         List<LevelTransition> possibleTransitions = new ArrayList<>();
         this.transitions.forEach((key, value) -> {
-            if (!value.predicate(world, playerComponent, this).isEmpty()) {
-                possibleTransitions.add(value.predicate(world, playerComponent, this).get(0));
+            List<LevelTransition> foundTransitions = value.predicate(world, playerComponent, this);
+            if (!foundTransitions.isEmpty() && isConnectedTo(foundTransitions.get(0).teleport().to())) {
+                possibleTransitions.add(foundTransitions.get(0));
             }
         });
 
@@ -189,6 +201,63 @@ public abstract class BackroomsLevel {
 
     public void unregisterTransition(String name) {
         this.transitions.remove(name);
+    }
+
+    /**
+     * Declares a route from this level to another one in the level graph.
+     * The {@link com.sp.world.levels.BackroomsLevel.LevelTransition} entries whose destination is not
+     * registered as a connection are ignored by {@link #checkForTransition(PlayerComponent, World)}.
+     * <p>
+     * Mirrors the Eufonia Backrooms "wiki_levels" approach: every level declares its routes as
+     * {@link RouteType#MAIN} (story progression) or {@link RouteType#SECONDARY} (optional branch).
+     */
+    public void registerConnection(BackroomsLevel to, RouteType type) {
+        this.connections.put(to, type);
+    }
+
+    public Map<BackroomsLevel, RouteType> getConnections() {
+        return Collections.unmodifiableMap(this.connections);
+    }
+
+    public boolean isConnectedTo(BackroomsLevel to) {
+        return this.connections.containsKey(to);
+    }
+
+    public Optional<RouteType> getRouteTypeTo(BackroomsLevel to) {
+        return Optional.ofNullable(this.connections.get(to));
+    }
+
+    /**
+     * If the player falls below {@link #getFallOutY()} this level, they are teleported back to the
+     * {@code fallback} level's spawn (Eufonia's "fallbackLevelId" concept) instead of dying in the void.
+     */
+    public void setFallbackLevel(BackroomsLevel fallbackBackroomsLevel) {
+        this.fallbackBackroomsLevel = fallbackBackroomsLevel;
+    }
+
+    public BackroomsLevel getFallbackLevel() {
+        return this.fallbackBackroomsLevel;
+    }
+
+    /**
+     * The y value below which the player is considered to have fallen out of this level.
+     */
+    public int getFallOutY() {
+        return -40;
+    }
+
+    /**
+     * Deterministic position of the checkpoint this level generated for the player position.
+     * Safe-rooms/respawn anchors placed by the chunk generator. Returns {@code null} if the level
+     * has no checkpoints.
+     */
+    public BlockPos findCheckpoint(Vec3d pos) {
+        return null;
+    }
+
+    public enum RouteType {
+        MAIN,
+        SECONDARY
     }
 
 

@@ -28,12 +28,15 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.packet.s2c.play.StopSoundS2CPacket;
 import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.GlobalPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
@@ -42,6 +45,8 @@ import net.minecraft.world.World;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+
+import org.jetbrains.annotations.Nullable;
 
 import static com.sp.SPBRevamped.SLOW_SPEED_MODIFIER;
 
@@ -67,6 +72,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private boolean playingGlitchSound;
     private boolean shouldNoClip;
     private int teleportingTimer;
+    private @Nullable GlobalPos checkpoint;
     private boolean isTeleporting;
 
     public int suffocationTimer;
@@ -199,6 +205,15 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     public void setTeleportingTimer(int teleportingTimer) {
         this.teleportingTimer = teleportingTimer;
         this.justChanged();
+    }
+
+    public @Nullable GlobalPos getCheckpoint() {
+        return checkpoint;
+    }
+
+    public void setCheckpoint(GlobalPos checkpoint) {
+        this.justChanged();
+        this.checkpoint = checkpoint;
     }
 
     public boolean isTeleporting() {
@@ -373,6 +388,13 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.shouldGlitch = tag.getBoolean("shouldGlitch");
         this.shouldInflictGlitchDamage = tag.getBoolean("shouldInflictGlitchDamage");
         this.teleportingTimer = tag.getInt("teleportingTimer");
+
+        if (tag.contains("checkpoint")) {
+            NbtCompound checkpointNbt = tag.getCompound("checkpoint");
+            this.checkpoint = GlobalPos.create(
+                RegistryKey.of(RegistryKeys.WORLD, new Identifier(checkpointNbt.getString("dimension"))),
+                new BlockPos(checkpointNbt.getInt("x"), checkpointNbt.getInt("y"), checkpointNbt.getInt("z")));
+        }
         this.skinWalkerLang = tag.contains("skinWalkerLang") ? tag.getString("skinWalkerLang") : "auto";
 
         this.playerSavedMainInventory.readNbtList(tag.getList("inventory", NbtElement.COMPOUND_TYPE));
@@ -398,6 +420,15 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("shouldInflictGlitchDamage", this.shouldInflictGlitchDamage);
         tag.putInt("teleportingTimer", this.teleportingTimer);
         tag.putString("skinWalkerLang", this.skinWalkerLang);
+
+        if (this.checkpoint != null) {
+            NbtCompound checkpointNbt = new NbtCompound();
+            checkpointNbt.putString("dimension", this.player.getWorld().getRegistryKey().getValue().toString());
+            checkpointNbt.putInt("x", this.checkpoint.getPos().getX());
+            checkpointNbt.putInt("y", this.checkpoint.getPos().getY());
+            checkpointNbt.putInt("z", this.checkpoint.getPos().getZ());
+            tag.put("checkpoint", checkpointNbt);
+        }
 
         if (BackroomsLevels.isInBackrooms(this.player.getWorld().getRegistryKey())) {
             tag.put("inventory", this.playerSavedMainInventory.toNbtList());
@@ -460,6 +491,27 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
             if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.getWorld().getBlockState(this.player.getBlockPos().offset(Direction.DOWN, 3)).isOf(Blocks.YELLOW_WOOL)) {
                 this.player.teleport(this.player.getX(), this.player.getY() + 64, this.player.getZ());
+            }
+
+            if (this.player.getY() < level.getFallOutY() && level.getFallbackLevel() != null && currentTransition == null) {
+                BackroomsLevel fallback = level.getFallbackLevel();
+                currentTransition = new BackroomsLevel.LevelTransition(
+                    40,
+                    (teleport, tick) -> {
+                        if (!teleport.playerComponent().player.getWorld().isClient() && tick == 20) {
+                            SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
+                        }
+                    },
+                    new BackroomsLevel.CrossDimensionTeleport(this, fallback.getSpawnPos(), level, fallback),
+                    (teleport, tick) -> {});
+            }
+
+            BlockPos checkpointPos = level.findCheckpoint(this.player.getPos());
+            if (checkpointPos != null) {
+                GlobalPos candidate = GlobalPos.create(this.player.getWorld().getRegistryKey(), checkpointPos);
+                if (!candidate.equals(this.checkpoint)) {
+                    this.setCheckpoint(candidate);
+                }
             }
         }
 

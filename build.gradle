@@ -19,6 +19,8 @@ base {
 //}
 
 repositories {
+	mavenCentral()
+
 	mavenLocal()
 	//Veil
 	maven {
@@ -123,6 +125,12 @@ dependencies {
 	//JavaChatAI - Conversational AI agent
 	implementation "com.javachatai:java-chat-ai:1.0.0"
 	include "com.javachatai:java-chat-ai:1.0.0"
+
+	//Vosk - local speech-to-text (model downloaded from Hugging Face at runtime)
+	implementation "com.alphacephei:vosk:0.3.45"
+	include "com.alphacephei:vosk:0.3.45"
+	implementation "net.java.dev.jna:jna:5.12.1"
+	include "net.java.dev.jna:jna:5.12.1"
 
 	//Sound Physics Remastered compat
 	modCompileOnly "maven.modrinth:qyVF9oeo:fabric-1.20.1-1.4.8"

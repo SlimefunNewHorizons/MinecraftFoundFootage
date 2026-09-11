@@ -1,5 +1,6 @@
 package com.sp.mixin.respawnsystem;
 
+import com.sp.cca_stuff.InitializeComponents;
 import com.sp.init.BackroomsLevels;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.RegistryKey;
@@ -37,9 +38,22 @@ public class PlayerManagerMixin {
         this.targetPlayer = player;
     }
 
+    @Unique
+    private BlockPos getCheckpointPos(ServerPlayerEntity player) {
+        GlobalPos checkpoint = InitializeComponents.PLAYER.get(player).getCheckpoint();
+        if (checkpoint != null && checkpoint.getDimension().equals(player.getWorld().getRegistryKey())) {
+            return checkpoint.getPos();
+        }
+        return null;
+    }
+
     @Redirect(method = "respawnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerPlayerEntity;getSpawnPointPosition()Lnet/minecraft/util/math/BlockPos;"))
     private BlockPos setSpawnPointPos(ServerPlayerEntity instance){
         if(BackroomsLevels.isInBackrooms(targetPlayer.getWorld().getRegistryKey())) {
+            BlockPos checkpointPos = getCheckpointPos(targetPlayer);
+            if (checkpointPos != null) {
+                return checkpointPos;
+            }
             return targetPlayer.getLastDeathPos().isPresent() ? targetPlayer.getLastDeathPos().get().getPos() : instance.getSpawnPointPosition();
         }
         return instance.getSpawnPointPosition();
@@ -60,6 +74,11 @@ public class PlayerManagerMixin {
     @Redirect(method = "respawnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/PlayerEntity;findRespawnPosition(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/util/math/BlockPos;FZZ)Ljava/util/Optional;"))
     private Optional<Vec3d> respawn(ServerWorld world, BlockPos pos, float angle, boolean forced, boolean alive){
         if(BackroomsLevels.isInBackrooms(targetPlayer.getWorld().getRegistryKey())) {
+            BlockPos checkpointPos = getCheckpointPos(targetPlayer);
+            if (checkpointPos != null) {
+                return PlayerEntity.findRespawnPosition(world, checkpointPos, angle, forced, alive)
+                    .or(() -> Optional.of(BlockPos.ofFloored(BackroomsLevels.getCurrentLevelsOrigin(world.getRegistryKey())).toCenterPos()));
+            }
             if (targetPlayer.getLastDeathPos().isPresent()) {
                 Vec3d lastDeathPos = targetPlayer.getLastDeathPos().get().getPos().toCenterPos();
                 if(lastDeathPos.y < 0){
@@ -88,6 +107,16 @@ public class PlayerManagerMixin {
             Optional<GlobalPos> lastDeathPos = targetPlayer.getLastDeathPos();
 
             if (currentWorld != null) {
+                BlockPos checkpointPos = getCheckpointPos(targetPlayer);
+                if (checkpointPos != null) {
+                    args.set(0, currentWorld.getRegistryKey());
+                    args.set(1, checkpointPos);
+                    args.set(2, args.get(2));
+                    args.set(3, args.get(3));
+                    args.set(4, args.get(4));
+                    return;
+                }
+
                 if (lastDeathPos.isPresent()) {
                     BlockPos pos = lastDeathPos.get().getPos();
 

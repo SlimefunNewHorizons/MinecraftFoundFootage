@@ -259,6 +259,13 @@ public class ModBlocks {
     public static final Block PAVEMENT = registerBlock("pavement",
             new Block(FabricBlockSettings.copyOf(ModBlocks.CONCRETE_BLOCK_11).hardness(-1f).noBlockBreakParticles().sounds(SprintBlockSoundGroup.CONCRETE)));
 
+    ///////Level 94 Stuff//////
+    public static final Block SIGN_POLE = registerBlock("sign_pole",
+            new SignPoleBlock(FabricBlockSettings.copyOf(Blocks.IRON_BLOCK).hardness(-1f).nonOpaque().noBlockBreakParticles().sounds(SprintBlockSoundGroup.METAL)));
+
+    public static final Block STOP_SIGN = registerBlock("stop_sign",
+            new StopSignBlock(FabricBlockSettings.copyOf(Blocks.IRON_BLOCK).hardness(-1f).nonOpaque().noBlockBreakParticles().sounds(SprintBlockSoundGroup.METAL)));
+
 
     private static Block registerBlock(String name, Block block) {
         registerBlockItem(name, block);

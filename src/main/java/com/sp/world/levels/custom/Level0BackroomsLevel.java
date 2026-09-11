@@ -15,6 +15,7 @@ import com.sp.world.levels.BackroomsLevelWithLights;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -140,6 +141,13 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
     @Override
     public void transitionIn(CrossDimensionTeleport crossDimensionTeleport) {
 
+    }
+
+    @Override
+    public BlockPos findCheckpoint(Vec3d pos) {
+        int gridX = Math.floorDiv((int) pos.x, 80) * 80;
+        int gridZ = Math.floorDiv((int) pos.z, 80) * 80;
+        return new BlockPos(gridX + 15, 21, gridZ + 15);
     }
 
     public int getIntercomCount() {

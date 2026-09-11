@@ -31,8 +31,6 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(Level2ChunkGenerator::new))
     );
     private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
-    PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
     public Level2ChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
         super(biomeSource);
@@ -43,6 +41,9 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
     public void generate(StructureWorldAccess world, Chunk chunk) {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
+
+        Random random = Random.create(this.getChunkSeed(world, chunk));
+        PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         MinecraftServer server = world.getServer();
@@ -71,10 +72,10 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
             if (server != null) {
 
                 if (noise1 > 0.0) {
-                    roomIdentifier = this.getRoom(false);
+                    roomIdentifier = this.getRoom(false, random);
                 }
                 else{
-                    roomIdentifier = this.getRoom(true);
+                    roomIdentifier = this.getRoom(true, random);
                 }
 
                 optional = structureTemplateManager.getTemplate(roomIdentifier);
@@ -89,8 +90,7 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
     }
 
 
-    public Identifier getRoom(boolean dark){
-        Random random = Random.create();
+    public Identifier getRoom(boolean dark, Random random){
         int roomNumber = random.nextBetween(1,18);
         Identifier identifier;
 

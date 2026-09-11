@@ -19,7 +19,8 @@
   "block.spb-revamped.rug1": "Rug 1",
   "block.spb-revamped.rug2": "Rug 2",
 
-
+  "block.spb-revamped.sign_pole": "Sign Pole",
+  "block.spb-revamped.stop_sign": "Stop Sign",
   "block.spb-revamped.wooden_crate": "Wooden Crate",
   "container.spb-revamped.wooden_crate": "Wooden Crate",
 
@@ -142,6 +143,8 @@
   "death.attack.acid": "%1$s burned in Acid!",
   "death.attack.smiler": "%1$s was killed by a Smiler!",
   "death.attack.skin_walker": "%1$s was killed by a Skin Walker!",
+  "death.attack.paper_police": "%1$s was silenced by the Paper Police!",
+  "entity.spb-revamped.paper_police": "Paper Police",
 
   "spb-revamped.keybinds": "SPB-Revamped",
   "key.spb-revamped.toggle_flashlight": "Toggle Flashlight",

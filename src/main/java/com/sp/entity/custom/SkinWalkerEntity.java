@@ -49,9 +49,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAnimatable, IKAnimatable<SkinWalkerEntity> {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
@@ -62,6 +59,10 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
     private Entity prevTarget;
     private int ticks;
     private int trueFormTime;
+    private int noticeTimer = -1;
+    private @Nullable PlayerEntity pendingNoticeTarget;
+    private boolean stareFrozen;
+    private int stareGraceTicks;
 
     public SkinWalkerChaseSoundInstance chaseSoundInstance;
     public SkinWalkerMovement movementSystem;
@@ -165,12 +166,24 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
                 }
 
                 this.updateLookAtSuspicion();
+                this.tickNoticeTimer();
+
+                if (this.stareFrozen) {
+                    this.getNavigation().stop();
+                    if (this.stareGraceTicks > 0) {
+                        this.stareGraceTicks--;
+                    }
+                    if (this.stareGraceTicks == 0) {
+                        this.stareFrozen = false;
+                        this.movementSystem.resetPathCooldown();
+                    }
+                } else {
+                    this.movementSystem.tick();
+                }
 
                 if (this.getTarget() != null && this.component.shouldLookAtTarget()) {
                     ((SkinWalkerLookControl)this.getLookControl()).lookAt(this.getTarget(), 3);
                 }
-
-                this.movementSystem.tick();
             }
 
             if(this.component.isInTrueForm() && !this.component.shouldBeginRelease()){
@@ -262,19 +275,18 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         List<PlayerEntity> players = this.getWorld().getPlayers(TargetPredicate.DEFAULT, this, new Box(this.getPos(), this.getPos().add(15, 15, 15)).offset(-7.5, -7.5, -7.5));
         players.forEach(otherPlayers::remove);
 
+        boolean beingStared = false;
+
         for (PlayerEntity player : players) {
             PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
             Entity targetEntity = playerComponent.getTargetEntity();
 
-            if(targetEntity != null) {
-                if (targetEntity.equals(this)) {
-                    if (playerComponent.getSkinWalkerLookDelay() <= 0) {
-                        this.component.addSuspicion();
-                    } else {
-                        playerComponent.subtractSkinWalkerLookDelay();
-                    }
+            if (targetEntity != null && targetEntity.equals(this)) {
+                beingStared = true;
+                if (playerComponent.getSkinWalkerLookDelay() <= 0) {
+                    this.component.addSuspicion();
                 } else {
-                    playerComponent.setSkinWalkerLookDelay(60);
+                    playerComponent.subtractSkinWalkerLookDelay();
                 }
             } else {
                 playerComponent.setSkinWalkerLookDelay(60);
@@ -282,16 +294,14 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         }
 
         for(PlayerEntity player : otherPlayers){
-            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
-            playerComponent.setSkinWalkerLookDelay(60);
+            InitializeComponents.PLAYER.get(player).setSkinWalkerLookDelay(60);
+        }
+
+        if (beingStared) {
+            this.stareFrozen = true;
+            this.stareGraceTicks = 15;
         }
     }
-
-    private static final ScheduledExecutorService NOTICE_EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "SkinWalker-Notice");
-        t.setDaemon(true);
-        return t;
-    });
 
     public void noticePlayer(PlayerEntity player){
         component.setNoticing(true);
@@ -299,11 +309,23 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         this.playSound(ModSounds.SKINWALKER_NOTICE, 10.0f, 1.0f);
         this.getLookControl().lookAt(player, 360, 360);
 
-        NOTICE_EXECUTOR.schedule(() ->{
-            this.getWorld().sendEntityStatus(this, (byte) 123);
-            this.setTarget(player);
-            component.setNoticing(false);
-        }, 4300, TimeUnit.MILLISECONDS);
+        this.pendingNoticeTarget = player;
+        this.noticeTimer = 86;
+    }
+
+    private void tickNoticeTimer() {
+        if (this.noticeTimer < 0) return;
+        this.noticeTimer--;
+
+        if (this.noticeTimer == 0) {
+            if (this.pendingNoticeTarget != null) {
+                this.getWorld().sendEntityStatus(this, (byte) 123);
+                this.setTarget(this.pendingNoticeTarget);
+                this.component.setNoticing(false);
+            }
+            this.pendingNoticeTarget = null;
+            this.noticeTimer = -1;
+        }
     }
 
     public void beginTargeting(PlayerEntity player) {

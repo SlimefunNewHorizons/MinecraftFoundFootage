@@ -42,7 +42,7 @@ public class MazeCell {
         this.visited = false;
     }
 
-    public void drawWallsWithDoors(StructureWorldAccess world, String levelId) {
+    public void drawWallsWithDoors(StructureWorldAccess world, String levelId, Random random) {
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
         Optional<StructureTemplate> optional;
@@ -64,13 +64,14 @@ public class MazeCell {
 
 
 
-        Random random = Random.create();
         BackroomsLevel.RoomCount roomCount = backroomsLevel.getRoomCount().get();
         int aroomNumber = random.nextBetween(1, roomCount.aRoomCount());
         int broomNumber = random.nextBetween(1, roomCount.bRoomCount());
         int croomNumber = random.nextBetween(1, roomCount.cRoomCount());
         int droomNumber = random.nextBetween(1, roomCount.dRoomCount());
         int eroomNumber = random.nextBetween(1, roomCount.eRoomCount());
+
+        int doorBits = this.doors;
 
         switch (this.walls) {
             case 0 -> { // 0000   ╬
@@ -153,83 +154,73 @@ public class MazeCell {
                 }
             }
 
-            case 8 -> { // 1000   ╦
-                this.doors = MathStuff.rotateBits(this.doors, 2);
-                roomId = threeWayDoor(levelId, broomNumber);
+case 8 -> { // 1000   ╦
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/broom_" + broomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_180);
             }
 
-            case 4 -> { // 0100   ╠
-                this.doors = MathStuff.rotateBits(this.doors, 1);
-                roomId = threeWayDoor(levelId, broomNumber);
+case 4 -> { // 0100   ╠
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/broom_" + broomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_90);
             }
 
             case 2 -> { // 0010   ╩
-                roomId = threeWayDoor(levelId, broomNumber);
+                roomId = threeWayDoor(levelId, broomNumber, doorBits);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE);
             }
 
-            case 1 -> { // 0001   ╣
-                this.doors = MathStuff.rotateBits(this.doors, 3);
-                roomId = threeWayDoor(levelId, broomNumber);
+case 1 -> { // 0001   ╣
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/broom_" + broomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.COUNTERCLOCKWISE_90);
             }
 
-            case 12 -> { // 1100   ╔
-                this.doors = MathStuff.rotateBits(this.doors, 1);
-                roomId = cornerDoor(levelId, croomNumber);
+case 12 -> { // 1100   ╔
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/croom_" + croomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_90);
             }
 
-            case 10 -> { // 1010   ═
-                this.doors = MathStuff.rotateBits(this.doors, 1);
-                roomId = hallwayDoor(levelId, droomNumber);
+case 10 -> { // 1010   ═
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/droom_" + droomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_90);
             }
 
-            case 9 -> { // 1001   ╗
-                this.doors = MathStuff.rotateBits(this.doors, 2);
-                roomId = cornerDoor(levelId, croomNumber);
+case 9 -> { // 1001   ╗
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/croom_" + croomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_180);
             }
 
             case 6 -> { // 0110   ╚
-                roomId = cornerDoor(levelId, croomNumber);
+                roomId = cornerDoor(levelId, croomNumber, doorBits);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE);
             }
 
             case 5 -> { // 0101   ║
-                roomId = hallwayDoor(levelId, droomNumber);
+                roomId = hallwayDoor(levelId, droomNumber, doorBits);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE);
             }
 
-            case 3 -> { // 0011   ╝
-                this.doors = MathStuff.rotateBits(this.doors, 3);
-                roomId = cornerDoor(levelId, croomNumber);
+case 3 -> { // 0011   ╝
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/croom_" + croomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.COUNTERCLOCKWISE_90);
             }
 
-            case 14 -> { // 1110   ╞
-                this.doors = MathStuff.rotateBits(this.doors, 1);
-                roomId = singleDoor(levelId, eroomNumber);
+case 14 -> { // 1110   ╞
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/eroom_" + eroomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_90);
             }
 
             case 7 -> { // 0111   ╨
-                roomId = singleDoor(levelId, eroomNumber);
+                roomId = singleDoor(levelId, eroomNumber, doorBits);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE);
             }
 
-            case 11 -> { // 1011   ╡
-                this.doors = MathStuff.rotateBits(this.doors, 3);
-                roomId = singleDoor(levelId, eroomNumber);
+case 11 -> { // 1011   ╡
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/eroom_" + eroomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.COUNTERCLOCKWISE_90);
             }
 
-            case 13 -> { // 1101   ╥
-                this.doors = MathStuff.rotateBits(this.doors, 2);
-                roomId = singleDoor(levelId, eroomNumber);
+case 13 -> { // 1101   ╥
+                roomId = new Identifier(SPBRevamped.MOD_ID, levelId + "/eroom_" + eroomNumber);
                 structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_180);
             }
 
@@ -267,7 +258,7 @@ public class MazeCell {
         }
     }
 
-    public void drawWalls(StructureWorldAccess world, String levelId) {
+    public void drawWalls(StructureWorldAccess world, String levelId, Random random) {
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
         Optional<StructureTemplate> optional;
@@ -289,7 +280,6 @@ public class MazeCell {
 
 
 
-        Random random = Random.create();
         BackroomsLevel.RoomCount roomCount = backroomsLevel.getRoomCount().get();
         int aroomNumber = random.nextBetween(1, roomCount.aRoomCount());
         int broomNumber = random.nextBetween(1, roomCount.bRoomCount());
@@ -407,8 +397,8 @@ public class MazeCell {
 
     }
 
-    private Identifier threeWayDoor(String level, int broomNumber) {
-        return switch (this.doors) {
+    private Identifier threeWayDoor(String level, int broomNumber, int doorBits) {
+        return switch (doorBits) {
             //NO DOORS
             case 0 -> // 0000
                 new Identifier(SPBRevamped.MOD_ID, level + "/broom_" + broomNumber);
@@ -437,8 +427,8 @@ public class MazeCell {
         };
     }
 
-    private Identifier cornerDoor(String level, int croomNumber) {
-        return switch (this.doors) {
+    private Identifier cornerDoor(String level, int croomNumber, int doorBits) {
+        return switch (doorBits) {
             //NO DOORS
             case 0 -> // 0000
                 new Identifier(SPBRevamped.MOD_ID, level + "/croom_" + croomNumber);
@@ -455,8 +445,8 @@ public class MazeCell {
         };
     }
 
-    private Identifier hallwayDoor(String level, int droomNumber) {
-        return switch (this.doors) {
+    private Identifier hallwayDoor(String level, int droomNumber, int doorBits) {
+        return switch (doorBits) {
             //NO DOORS
             case 0 -> // 0000
                 new Identifier(SPBRevamped.MOD_ID, level + "/droom_" + droomNumber);
@@ -473,8 +463,8 @@ public class MazeCell {
         };
     }
 
-    private Identifier singleDoor(String level, int eroomNumber) {
-        if(this.doors == 8){
+    private Identifier singleDoor(String level, int eroomNumber, int doorBits) {
+        if(doorBits == 8){
             return new Identifier(SPBRevamped.MOD_ID, level + "/eroom_door_" + eroomNumber);
         }
 

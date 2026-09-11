@@ -31,7 +31,7 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
 import net.minecraft.world.gen.noise.NoiseConfig;
-import org.joml.SimplexNoise;
+import net.minecraft.util.math.noise.PerlinNoiseSampler;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +47,6 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(InfGrassChunkGenerator::new))
     );
     private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
 
     public InfGrassChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
         super(biomeSource, 2);
@@ -58,6 +57,8 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
 
+        Random random = Random.create(this.getChunkSeed(world, chunk));
+        PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         MinecraftServer server = world.getServer();
@@ -70,7 +71,7 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
 
 
-        float sampler = SimplexNoise.noise(x, 0);
+        double sampler = noiseSampler.sample(x * 0.002, 0, z * 0.002);
         if (sampler >= 0.6) {
             if (server != null) {
                 roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "inf_grass/utility_pole");
@@ -80,10 +81,11 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
                 for (int j = 0; j < 16; j++) {
                     if ((z + j) % 21 == 0) {
                         int finalJ = j;
+                        int offsetZ = z + finalJ + (int) (sampler * 10);
                         optional.ifPresent(structureTemplate -> structureTemplate.place(
                                 world,
-                                mutable.set(x, 31, z + finalJ + sampler * 10),
-                                mutable.set(x, 31, z + finalJ + sampler * 10),
+                                mutable.set(x, 31, offsetZ),
+                                mutable.set(x, 31, offsetZ),
                                 structurePlacementData, random, 2));
                     }
                 }
@@ -93,7 +95,7 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         } else {
             float rand = random.nextFloat();
             if (rand < 0.01f) {
-                roomIdentifier = this.randFeature(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world)));
+                roomIdentifier = this.randFeature(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world)), random);
 
                 optional = structureTemplateManager.getTemplate(roomIdentifier);
 
@@ -107,7 +109,7 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         }
     }
 
-    private Identifier randFeature(boolean exit) {
+    private Identifier randFeature(boolean exit, Random random) {
         int rand = random.nextBetween(1,3);
         if(exit){
             if(rand == 1){

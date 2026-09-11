@@ -36,19 +36,20 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(PoolroomsChunkGenerator::new))
     );
     private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
-    PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
     private final List<String> mainMegaRoomList = List.of("16x16", "16x24", "16x32", "24x16", "24x24", "24x32", "32x16", "32x24", "32x32");
 
     public PoolroomsChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        super(biomeSource, 4);
         this.settings = settings;
     }
 
     public void generate(StructureWorldAccess world, Chunk chunk) {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
+
+        Random random = Random.create(this.getChunkSeed(world, chunk));
+        PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
 
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         MinecraftServer server = world.getServer();
@@ -77,10 +78,10 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
             if(server != null){
                 PoolroomsMazeGenerator poolroomsMazeGenerator = new PoolroomsMazeGenerator(8, 10, 10, x, z, "poolrooms/sky");
-                poolroomsMazeGenerator.setup(world, true, false, false);
+                poolroomsMazeGenerator.setup(world, true, false, false, random);
             }
 
-        } else if (((float)chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float)chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0) {
+        } else if (Math.floorMod(chunk.getPos().x, SPBRevamped.FINAL_MAZE_SIZE) == 0 && Math.floorMod(chunk.getPos().z, SPBRevamped.FINAL_MAZE_SIZE) == 0) {
 
             if(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world))){
                 int exit = random.nextBetween(0,4);
@@ -117,9 +118,9 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
                 double noise = noiseSampler.sample((x) * 0.002, 0, (z) * 0.002);
                 boolean shouldSky = noise > 0;
 
-                this.generateMegaRooms(world, mutable, shouldSky, x - 32, z - 32);
+                this.generateMegaRooms(world, mutable, shouldSky, x - 32, z - 32, random);
                 PoolroomsMazeGenerator poolroomsMazeGenerator = new PoolroomsMazeGenerator(8, 10, 10, x, z, "poolrooms/" + (shouldSky ? "sky" : "dark"));
-                poolroomsMazeGenerator.setup(world, noise > 0, true, false);
+                poolroomsMazeGenerator.setup(world, noise > 0, true, false, random);
             }
         }
 
@@ -133,7 +134,7 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
     }
 
-    private void generateMegaRooms(StructureWorldAccess world, BlockPos.Mutable mutable, boolean sky, int originX, int originY) {
+    private void generateMegaRooms(StructureWorldAccess world, BlockPos.Mutable mutable, boolean sky, int originX, int originY, Random random) {
         int size = 8;
         int rows = 10;
         int cols = 10;
@@ -142,7 +143,6 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
             levelDirectory = "poolrooms/dark";
         }
 
-        Random random = Random.create();
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
         Identifier roomIdentifier = null;
 
@@ -168,9 +168,8 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
         structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
         Optional<StructureTemplate> optional = structureTemplateManager.getTemplate(roomIdentifier);
 
-        int directoryLength = levelDirectory.length();
-        int roomWidth = Integer.parseInt(roomIdentifier.getPath().substring(directoryLength + 10, directoryLength + 12));
-        int roomHeight = Integer.parseInt(roomIdentifier.getPath().substring(directoryLength + 13, directoryLength + 15));
+        int roomWidth = parseRoomDimension("width", levelDirectory, roomIdentifier);
+        int roomHeight = parseRoomDimension("height", levelDirectory, roomIdentifier);
 
         int randX = random.nextBetween(1, cols - (1 + (roomWidth / size)));
         int randY = random.nextBetween(1, rows - (1 + (roomHeight / size)));
@@ -242,8 +241,33 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
     }
 
+    /**
+     * Extracts the width (or height) of a megaroom from its structure identifier path.
+     * Robust against changes in the level directory prefix. Falls back to 16 if unparsable.
+     */
+    private static int parseRoomDimension(String dimension, String levelDirectory, Identifier roomIdentifier) {
+        String path = roomIdentifier.getPath();
+        String dimPrefix = "megaroom_";
+        int dimIdx = path.lastIndexOf(dimPrefix);
+        if (dimIdx < 0) {
+            return 16;
+        }
+        int start = dimIdx + dimPrefix.length();
+        String dims = path.substring(start);
+        String[] parts = dims.split("_");
+        if (parts.length < 2) {
+            return 16;
+        }
+        try {
+            int width = Integer.parseInt(parts[0]);
+            int height = Integer.parseInt(parts[1]);
+            return dimension.equals("height") ? height : width;
+        } catch (NumberFormatException e) {
+            return 16;
+        }
+    }
+
     protected Codec<? extends ChunkGenerator> getCodec() {
         return CODEC;
     }
 }
-

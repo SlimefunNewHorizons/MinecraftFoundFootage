@@ -8,6 +8,7 @@ import com.sp.entity.custom.SkinWalkerEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +26,14 @@ public class SkinWalkerMovement {
     private int modeChangeCooldown = 0;
     private int tickCount = 0;
     private boolean learningActive = false;
+    private int pathRecalcCooldown = 0;
+    private UUID trackedTargetUUID;
+    private FollowMode lastMode;
+
+    private static final int MIMIC_DELAY_TICKS = 10;
+    private final ArrayDeque<MimicSnapshot> inputBuffer = new ArrayDeque<>();
+
+    private record MimicSnapshot(boolean sprinting, boolean sneaking, boolean jumping, Vec3d position) {}
 
     private static final float MIN_DISTANCE = 5.0f;
     private static final float MAX_DISTANCE = 15.0f;
@@ -47,7 +56,15 @@ public class SkinWalkerMovement {
         if (target == null) return;
 
         recordPlayerInput(target);
+        recordMimicInput(target);
         updateFollowMode(target);
+
+        if (lastMode != null && lastMode == FollowMode.MIMIC && currentMode != FollowMode.MIMIC) {
+            entity.setSprinting(false);
+            entity.setSneaking(false);
+        }
+        lastMode = currentMode;
+
         calculateMovement(target);
         moveTowardTarget();
         applyLookDirection(target);
@@ -71,6 +88,22 @@ public class SkinWalkerMovement {
 
         if (!learningActive && javaAI.getHistorySize(playerUUID) > 20) {
             learningActive = true;
+        }
+    }
+
+    private void recordMimicInput(PlayerEntity player) {
+        UUID playerUUID = player.getUuid();
+        if (!playerUUID.equals(trackedTargetUUID)) {
+            trackedTargetUUID = playerUUID;
+            inputBuffer.clear();
+        }
+
+        boolean jumping = !player.isOnGround() && player.getVelocity().y > 0.1;
+        inputBuffer.addLast(new MimicSnapshot(
+                player.isSprinting(), player.isSneaking(), jumping, player.getPos()
+        ));
+        while (inputBuffer.size() > MIMIC_DELAY_TICKS) {
+            inputBuffer.removeFirst();
         }
     }
 
@@ -134,7 +167,7 @@ public class SkinWalkerMovement {
 
         switch (currentMode) {
             case MIMIC:
-                currentTarget = predictMimicPosition(target);
+                currentTarget = getDelayedMimicTarget(target);
                 break;
             case DIRECT:
                 currentTarget = calculateDirectPosition(playerPos, swPos);
@@ -153,24 +186,30 @@ public class SkinWalkerMovement {
         currentTarget = addNaturalVariation(currentTarget, playerPos);
     }
 
-    private Vec3d predictMimicPosition(PlayerEntity target) {
-        UUID targetUUID = target.getUuid();
-        PlayerInputSnapshot predicted = javaAI.predictNext(targetUUID);
+    private Vec3d getDelayedMimicTarget(PlayerEntity target) {
+        MimicSnapshot snapshot = inputBuffer.peekFirst();
+        if (snapshot != null) {
+            return snapshot.position();
+        }
+        return target.getPos();
+    }
 
-        if (predicted != null) {
-            Vec3d targetPos = target.getPos();
-            Vec3d predictedPos = new Vec3d(predicted.getX(), predicted.getY(), predicted.getZ());
+    private void applyMimicBehaviour() {
+        if (currentMode != FollowMode.MIMIC) return;
 
-            Vec3d offset = predictedPos.subtract(targetPos);
-            double offsetDistance = offset.length();
+        MimicSnapshot snapshot = inputBuffer.peekFirst();
+        if (snapshot == null) return;
 
-            if (offsetDistance > 0.1 && offsetDistance < 30) {
-                Vec3d mimicTarget = targetPos.add(offset.multiply(0.3));
-                return addNaturalVariation(mimicTarget, targetPos);
-            }
+        entity.setSprinting(snapshot.sprinting());
+        entity.setSneaking(snapshot.sneaking());
+        if (snapshot.jumping()) {
+            entity.doJump();
         }
 
-        return calculateDirectPosition(target.getPos(), entity.getPos());
+        if (Math.random() < 0.3) {
+            ((SkinWalkerEntity.SkinWalkerLookControl) entity.getLookControl())
+                    .lookAt(new Vec3d(snapshot.position().x, entity.getY(), snapshot.position().z), 5);
+        }
     }
 
     private Vec3d calculateDirectPosition(Vec3d playerPos, Vec3d swPos) {
@@ -249,15 +288,24 @@ public class SkinWalkerMovement {
     private void moveTowardTarget() {
         if (currentTarget == null) return;
 
-        entity.getNavigation().startMovingTo(currentTarget.x, currentTarget.y, currentTarget.z, speedMultiplier);
-
-        if (Math.random() < 0.15) {
-            entity.setSprinting(true);
-        } else if (Math.random() < 0.05) {
-            entity.setSprinting(false);
+        if (pathRecalcCooldown <= 0) {
+            entity.getNavigation().startMovingTo(currentTarget.x, currentTarget.y, currentTarget.z, speedMultiplier);
+            pathRecalcCooldown = 10;
+        } else {
+            pathRecalcCooldown--;
         }
 
-        entity.setSneaking(Math.random() < 0.08);
+        applyMimicBehaviour();
+
+        if (currentMode != FollowMode.MIMIC) {
+            if (Math.random() < 0.15) {
+                entity.setSprinting(true);
+            } else if (Math.random() < 0.05) {
+                entity.setSprinting(false);
+            }
+
+            entity.setSneaking(Math.random() < 0.08);
+        }
 
         if (entity.horizontalCollision && Math.random() < 0.3) {
             entity.doJump();
@@ -315,4 +363,6 @@ public class SkinWalkerMovement {
     public boolean isLearningActive() { return learningActive; }
     public FollowMode getCurrentMode() { return currentMode; }
     public float getSpeedMultiplier() { return speedMultiplier; }
+
+    public void resetPathCooldown() { pathRecalcCooldown = 0; }
 }

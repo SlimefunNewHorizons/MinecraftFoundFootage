@@ -1,6 +1,7 @@
 package com.sp.init;
 
 import com.sp.SPBRevamped;
+import com.sp.entity.custom.PaperPoliceEntity;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.custom.SmilerEntity;
 import com.sp.entity.custom.WalkerEntity;
@@ -25,4 +26,8 @@ public class ModEntities {
     public static final EntityType<WalkerEntity> WALKER_ENTITY = Registry.register(Registries.ENTITY_TYPE,
             new Identifier(SPBRevamped.MOD_ID, "walker"),
             FabricEntityTypeBuilder.create(SpawnGroup.MONSTER, WalkerEntity::new).dimensions(EntityDimensions.fixed(2.0f, 2.0f)).build());
+
+    public static final EntityType<PaperPoliceEntity> PAPER_POLICE_ENTITY = Registry.register(Registries.ENTITY_TYPE,
+            new Identifier(SPBRevamped.MOD_ID, "paper_police"),
+            FabricEntityTypeBuilder.create(SpawnGroup.MONSTER, PaperPoliceEntity::new).dimensions(EntityDimensions.fixed(0.7f, 1.8f)).build());
 }

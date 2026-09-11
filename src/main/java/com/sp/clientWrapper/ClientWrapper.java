@@ -321,7 +321,7 @@ public class ClientWrapper {
                 }
             }
 
-            if ((levelKey == BackroomsLevels.INFINITE_FIELD_WORLD_KEY) && !soundManager.isPlaying(playerComponent.WindAmbience)) {
+            if ((levelKey == BackroomsLevels.INFINITE_FIELD_WORLD_KEY || levelKey == BackroomsLevels.LEVEL94_WORLD_KEY) && !soundManager.isPlaying(playerComponent.WindAmbience)) {
                 playerComponent.WindAmbience = new InfiniteGrassAmbienceSoundInstance(playerComponent.player);
                 soundManager.play(playerComponent.WindAmbience);
             }

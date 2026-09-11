@@ -37,18 +37,16 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
 
     private final RegistryEntry<ChunkGeneratorSettings> settings;
 
-    private final Random random;
-
     public Level324ChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        super(biomeSource, 3);
         this.settings = settings;
-        this.random = Random.create();
     }
 
     @Override
     public void generate(StructureWorldAccess world, Chunk chunk) {
         int x = chunk.getPos().getStartX();
         int z = chunk.getPos().getStartZ();
+        Random random = Random.create(this.getChunkSeed(world, chunk));
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
 
@@ -115,12 +113,12 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
 
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
-                if (!((z + j > -1 && z + j < 27) && (x + i > 7 && x + i < 55))) {
+                if (!((z + j > -1 && z + j < 27) && (x + i > 7 && x + i < 56))) {
                     chunk.setBlockState(mutable.set(i, 0, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
 
                     chunk.setBlockState(mutable.set(i, 63, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
 
-                    if ((i + Math.abs(x * 16)) % 1000 < 8/* || (j + Math.abs(chunk.getPos().z * 16)) % 1000 < 8*/) {
+                    if ((i + Math.abs(x)) % 1000 < 8) {
                         chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.ROAD.getDefaultState(), false);
                     } else {
                         chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.RED_DIRT.getDefaultState(), false);

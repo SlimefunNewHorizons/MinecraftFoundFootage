@@ -38,7 +38,8 @@ public class Level0MazeGenerator extends MazeGenerator {
     }
 
     @Override
-    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
+    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms, Random random) {
+        this.random = random;
         BlockPos.Mutable mutable = new BlockPos.Mutable();
 
         for (int y = 0; y < this.rows; y++) {
@@ -49,6 +50,8 @@ public class Level0MazeGenerator extends MazeGenerator {
                 }
             }
         }
+
+        this.placeExitConnectors(world);
 
         this.currentCell = grid[0][0];
         currentCell.setVisited(true);
@@ -102,13 +105,31 @@ public class Level0MazeGenerator extends MazeGenerator {
         for (MazeCell[] cell : grid){
             for(MazeCell cells: cell){
                 if (cells != null) {
-                    cells.drawWalls(world, this.levelDirectory);
+                    cells.drawWalls(world, this.levelDirectory, this.random);
                 }
             }
         }
 
 
 
+    }
+
+    /**
+     * Deterministic exit markers for the maze: forces the center cell (which hosts the stairwell room
+     * in its south-east quadrant) to open passages to its four neighbours on both the main (y=19) and
+     * the catacombs (y=4) floor. Replaces the hand-placed LIME_WOOL markers: {@link #checkNeighbors}
+     * consumes them to open the doors toward the exit room.
+     */
+    private void placeExitConnectors(StructureWorldAccess world) {
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        int centerX = this.originX + this.size * (this.cols / 2);
+        int centerZ = this.originY + this.size * (this.rows / 2);
+        for (int yLevel = 19; yLevel >= 4; yLevel -= 15) {
+            world.setBlockState(mutable.set(centerX, yLevel, centerZ - this.size), Blocks.LIME_WOOL.getDefaultState(), 16);
+            world.setBlockState(mutable.set(centerX, yLevel, centerZ + this.size), Blocks.LIME_WOOL.getDefaultState(), 16);
+            world.setBlockState(mutable.set(centerX - this.size, yLevel, centerZ), Blocks.LIME_WOOL.getDefaultState(), 16);
+            world.setBlockState(mutable.set(centerX + this.size, yLevel, centerZ), Blocks.LIME_WOOL.getDefaultState(), 16);
+        }
     }
 
     public MazeCell checkNeighbors(MazeCell[][] grid, int y, int x, StructureWorldAccess world){
@@ -161,8 +182,7 @@ public class Level0MazeGenerator extends MazeGenerator {
         }
 
         if (!neighbors.isEmpty()){
-            Random random = Random.create();
-            int r = random.nextBetween(0, neighbors.size() - 1);
+            int r = this.random.nextBetween(0, neighbors.size() - 1);
             return neighbors.get(r);
         }
         else{

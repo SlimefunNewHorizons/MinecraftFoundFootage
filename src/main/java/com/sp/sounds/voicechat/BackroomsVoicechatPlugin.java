@@ -3,13 +3,14 @@ package com.sp.sounds.voicechat;
 import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
+import com.sp.compat.modmenu.ConfigStuff;
+import com.sp.entity.voice.VoiceTranscriber;
 import de.maxhenkel.voicechat.api.VoicechatApi;
 import de.maxhenkel.voicechat.api.VoicechatConnection;
 import de.maxhenkel.voicechat.api.VoicechatPlugin;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.api.opus.OpusDecoder;
-import de.maxhenkel.voicechat.voice.common.Utils;
 import de.maxhenkel.voicechat.voice.common.Utils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
@@ -27,8 +28,9 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     public static ConcurrentHashMap<UUID, Float> speakingTime;
     public static Map<UUID, Vector<short[]>> randomSpeakingList;
     private static Map<UUID, short[]> totalSoundData;
-    private static Map<UUID, Integer> ticks;
     private static Map<UUID, Boolean> wasSpeaking;
+
+    private static final int MIN_VOICE_SAMPLE_SAMPLES = 48000;
 
     public static List<String> lastTranscribedInputs = new CopyOnWriteArrayList<>();
     private static final int MAX_INPUTS = 20;
@@ -43,7 +45,6 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         decoders = new ConcurrentHashMap<>();
         speakingTime = new ConcurrentHashMap<>();
         randomSpeakingList = new ConcurrentHashMap<>();
-        ticks = new ConcurrentHashMap<>();
         totalSoundData = new ConcurrentHashMap<>();
         wasSpeaking = new ConcurrentHashMap<>();
         lastTranscribedInputs = new CopyOnWriteArrayList<>();
@@ -141,13 +142,6 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             return;
         }
 
-
-        if (ticks.containsKey(player.getUuid())) {
-            ticks.put(player.getUuid(), ticks.get(player.getUuid()) + 1);
-        } else {
-            ticks.put(player.getUuid(), 0);
-        }
-
         byte[] encodedData = microphonePacketEvent.getPacket().getOpusEncodedData();
 
         byte[] copyData = encodedData.clone();
@@ -168,7 +162,7 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
                 boolean prevWasSpeaking = wasSpeaking.getOrDefault(player.getUuid(), false);
                 wasSpeaking.put(player.getUuid(), true);
 
-                if (!prevWasSpeaking) {
+                if (!prevWasSpeaking && !ConfigStuff.sttEnabled) {
                     detectVoiceInput(player);
                 }
 
@@ -222,32 +216,43 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             }
         }
 
-        if (ticks.get(player.getUuid()) != null && ticks.get(player.getUuid()) > 40  && ticks.get(player.getUuid()) < 200) {
+        short[] recorded = totalSoundData.get(player.getUuid());
+        if (recorded != null && recorded.length >= MIN_VOICE_SAMPLE_SAMPLES) {
             Random random = Random.create();
 
             Vector<short[]> soundList = randomSpeakingList.getOrDefault(player.getUuid(), new Vector<>());
 
-            if (totalSoundData.containsKey(player.getUuid()) && totalSoundData.get(player.getUuid()) != null) {
-                if (soundList.size() < 20) {
-                    soundList.add(totalSoundData.get(player.getUuid()));
-                } else if (soundList.size() > 0) {
-                    soundList.set(random.nextBetween(0, soundList.size() - 1), totalSoundData.get(player.getUuid()));
-                }
+            if (soundList.size() < 20) {
+                soundList.add(recorded);
+            } else if (soundList.size() > 0) {
+                soundList.set(random.nextBetween(0, soundList.size() - 1), recorded);
+            }
 
-                randomSpeakingList.put(player.getUuid(), soundList);
+            randomSpeakingList.put(player.getUuid(), soundList);
+        }
+
+        if (ConfigStuff.sttEnabled && recorded != null) {
+            if (recorded.length >= MIN_VOICE_SAMPLE_SAMPLES) {
+                VoiceTranscriber.transcribeAsync(player, recorded, 48000);
+            } else if (recorded.length > 0) {
+                pushVoiceInput(player);
             }
         }
 
-        ticks.put(player.getUuid(), 0);
         totalSoundData.remove(player.getUuid());
     }
 
-    private void detectVoiceInput(PlayerEntity player) {
+    public static void pushVoiceInput(PlayerEntity player) {
+        if (player == null) return;
         if (lastTranscribedInputs.size() >= MAX_INPUTS) {
             lastTranscribedInputs.remove(0);
         }
         String input = "voice_" + player.getName().getString().toLowerCase();
         lastTranscribedInputs.add(input);
+    }
+
+    private static void detectVoiceInput(PlayerEntity player) {
+        pushVoiceInput(player);
     }
 
     public static void receiveChatInput(String playerName, String message) {
@@ -277,8 +282,13 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     }
 
     private void onServerStop(VoicechatServerStoppedEvent voicechatServerStoppedEvent) {
-        decoders.forEach(this::removePlayerDecoder);
-        speakingTime.clear();
+        if (decoders != null) {
+            decoders.forEach((uuid, decoder) -> this.removePlayerDecoder(uuid, decoder));
+        }
+        if (speakingTime != null) {
+            speakingTime.clear();
+        }
+        VoiceTranscriber.shutdown();
     }
 
     private void removePlayerDecoder(UUID uuid, OpusDecoder decoder){
