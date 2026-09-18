@@ -46,6 +46,7 @@ public class ShadowMapRenderer {
 
 
 
+            Frustum backupFrustum = accessor.getFrustum();
             frustum = new Frustum(shadowModelView.peek().getPositionMatrix(), shadowProjMat);
             frustum.setPosition(cameraPos.x, cameraPos.y, cameraPos.z);
             accessor.setFrustum(frustum);
@@ -73,6 +74,7 @@ public class ShadowMapRenderer {
             RenderSystem.viewport(0, 0, width, height);
 
             RenderSystem.setProjectionMatrix(backupProjMat, VertexSorter.BY_DISTANCE);
+            accessor.setFrustum(backupFrustum);
 
 
 
@@ -99,6 +101,7 @@ public class ShadowMapRenderer {
             setRenderingShadowMap(true);
 
 
+            Frustum backupFrustum = accessor.getFrustum();
             GL11.glEnable(GL30.GL_CLIP_DISTANCE0);
 
             if(world.getRegistryKey() != World.OVERWORLD) {
@@ -120,6 +123,7 @@ public class ShadowMapRenderer {
             RenderSystem.viewport(0, 0, width, height);
 
             RenderSystem.setProjectionMatrix(backupProjMat, VertexSorter.BY_DISTANCE);
+            accessor.setFrustum(backupFrustum);
 
 
 

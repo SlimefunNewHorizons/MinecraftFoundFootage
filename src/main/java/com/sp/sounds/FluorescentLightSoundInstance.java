@@ -46,6 +46,10 @@ public class FluorescentLightSoundInstance extends MovingSoundInstance {
         World world = this.entity.getWorld();
 
         if (!((BackroomsLevels.getLevel(player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof Level0BackroomsLevel level)) {
+            this.setDone();
+            if (this.entity instanceof FluorescentLightBlockEntity lightEntity) {
+                lightEntity.setPlayingSound(false);
+            }
             return;
         }
 

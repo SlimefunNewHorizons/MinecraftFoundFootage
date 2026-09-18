@@ -1,6 +1,6 @@
 package com.sp.cca_stuff;
 
-import com.sp.clientWrapper.ClientWrapper;
+import com.sp.util.StepSoundHelper;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.ik.components.IKAnimatable;
 import com.sp.entity.ik.components.IKLegComponent;
@@ -49,10 +49,10 @@ public class SkinWalkerComponent implements AutoSyncedComponent {
                     .movementSpeed(0.7)
                     .maxStandingStillDistance(0.1)
                     .standStillCounter(20).build(),
-            List.of(new ServerLimb(1.5, 0, 2, (limb, legComponent, i, movementSpeed) -> ClientWrapper.skinWalkerPlayStepSound(limb)),
-                    new ServerLimb(-1.5, 0, 2, (limb, legComponent, i, movementSpeed) -> ClientWrapper.skinWalkerPlayStepSound(limb)),
-                    new ServerLimb(1.5, 0, -2, (limb, legComponent, i, movementSpeed) -> ClientWrapper.skinWalkerPlayStepSound(limb)),
-                    new ServerLimb(-1.5, 0, -2, (limb, legComponent, i, movementSpeed) -> ClientWrapper.skinWalkerPlayStepSound(limb))),
+            List.of(new ServerLimb(1.5, 0, 2, (limb, legComponent, i, movementSpeed) -> StepSoundHelper.skinWalkerPlayStepSound(limb)),
+                    new ServerLimb(-1.5, 0, 2, (limb, legComponent, i, movementSpeed) -> StepSoundHelper.skinWalkerPlayStepSound(limb)),
+                    new ServerLimb(1.5, 0, -2, (limb, legComponent, i, movementSpeed) -> StepSoundHelper.skinWalkerPlayStepSound(limb)),
+                    new ServerLimb(-1.5, 0, -2, (limb, legComponent, i, movementSpeed) -> StepSoundHelper.skinWalkerPlayStepSound(limb))),
             new TargetReachingIKChain(new Segment.Builder().length(0.65).build(), new Segment.Builder().length(0.9).build(), new Segment.Builder().length(1.1).build(), new Segment.Builder().length(0.9).build()),
             new TargetReachingIKChain(new Segment.Builder().length(0.65).build(), new Segment.Builder().length(0.9).build(), new Segment.Builder().length(1.1).build(), new Segment.Builder().length(0.9).build()),
             new TargetReachingIKChain(new Segment.Builder().length(0.65).build(), new Segment.Builder().length(0.9).build(), new Segment.Builder().length(1.1).build(), new Segment.Builder().length(0.9).build()),

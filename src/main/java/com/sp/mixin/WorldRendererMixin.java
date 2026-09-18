@@ -76,7 +76,10 @@ public abstract class WorldRendererMixin {
 
     @Redirect(method = "processWorldEvent", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/sound/SoundManager;play(Lnet/minecraft/client/sound/SoundInstance;)V"))
     private void stopTravelSound(SoundManager instance, SoundInstance sound){
-
+        if (sound != null && sound.getId() != null && sound.getId().getPath().contains("portal.travel")) {
+            return;
+        }
+        instance.play(sound);
     }
 
 }

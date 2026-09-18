@@ -1,7 +1,6 @@
 package com.sp.world.levels.custom;
 
 import com.sp.SPBRevamped;
-import com.sp.SPBRevampedClient;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModBlocks;
@@ -86,15 +85,6 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
         return new LevelTransition(
                 40,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
-
-                    if (world.isClient()) {
-                        if (tick == 14) {
-                            SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
-                        }
-                        return;
-                    }
-
                     if (tick == 20) {
                         teleport.playerComponent().setShouldNoClip(true);
                         teleport.playerComponent().sync();
@@ -112,7 +102,7 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
                 }, // Tick
                 new CrossDimensionTeleport(
                         playerComponent,
-                        BackroomsLevels.INFINITE_FIELD_BACKROOMS_LEVEL.getSpawnPos(),
+                        BackroomsLevels.INFINITE_FIELD_BACKROOMS_LEVEL.getSafeSpawnPos(),
                         this,
                         BackroomsLevels.INFINITE_FIELD_BACKROOMS_LEVEL
                 ),
@@ -126,17 +116,9 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
         return new LevelTransition(
                 10,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
                     if (tick == 9) {
                         teleport.playerComponent().setShouldNoClip(true);
                         teleport.playerComponent().sync();
-                    }
-
-                    if (world.isClient()) {
-                        if (tick == 4) {
-                            SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
-                        }
-                        return;
                     }
 
                     if (tick == 4) {
@@ -151,7 +133,7 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
                 }, // Tick
                 new CrossDimensionTeleport(
                         playerComponent,
-                        BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL.getSpawnPos(),
+                        BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL.getSafeSpawnPos(),
                         this,
                         BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL
                 ),
@@ -162,12 +144,12 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
     }
 
     @Override
-    public boolean rendersClouds() {
+    public boolean rendersSky() {
         return false;
     }
 
     @Override
-    public boolean rendersSky() {
+    public boolean rendersClouds() {
         return false;
     }
 
@@ -182,8 +164,11 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
 
     @Override
     public void readFromNbt(NbtCompound nbt) {
-        this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getString("lightState"));
-
+        try {
+            this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getString("lightState"));
+        } catch (Exception e) {
+            this.lightState = BackroomsLevelWithLights.LightState.ON;
+        }
     }
 
     @Override

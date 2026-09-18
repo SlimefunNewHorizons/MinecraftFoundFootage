@@ -43,6 +43,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.sound.MovingSoundInstance;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundManager;
 import net.minecraft.entity.player.PlayerEntity;
@@ -69,6 +70,17 @@ import static com.sp.block.custom.ThinFluorescentLightBlock.FACING;
  * This mostly happens with Sound Instances. And Veil lights.
  **/
 public class ClientWrapper {
+    public static MovingSoundInstance DeepAmbience;
+    public static MovingSoundInstance GasPipeAmbience;
+    public static MovingSoundInstance WaterPipeAmbience;
+    public static MovingSoundInstance WarpAmbience;
+    public static MovingSoundInstance PoolroomsNoonAmbience;
+    public static MovingSoundInstance PoolroomsSunsetAmbience;
+    public static MovingSoundInstance GlitchAmbience;
+    public static MovingSoundInstance SmilerAmbience;
+    public static MovingSoundInstance WindAmbience;
+    public static MovingSoundInstance WindTunnelAmbience;
+
     public static void skinWalkerPlayStepSound(ServerLimb limb) {
         if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -115,9 +127,9 @@ public class ClientWrapper {
                 playerComponent.glitchTick = Math.min(playerComponent.glitchTick + 1, 80);
                 playerComponent.glitchTimer = Math.min((float) playerComponent.glitchTick / 80, 1.0f);
 
-                if (!soundManager.isPlaying(playerComponent.GlitchAmbience)) {
-                    playerComponent.GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.GlitchAmbience);
+                if (!soundManager.isPlaying(GlitchAmbience)) {
+                    GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
+                    soundManager.play(GlitchAmbience);
                 }
 
                 if (playerComponent.glitchTimer >= 0.25f) {
@@ -133,8 +145,8 @@ public class ClientWrapper {
                 playerComponent.glitchTimer = Math.max((float) playerComponent.glitchTick / 80, 0.0f);
 
                 if (playerComponent.glitchTimer <= 0) {
-                    if (soundManager.isPlaying(playerComponent.GlitchAmbience)) {
-                        soundManager.stop(playerComponent.GlitchAmbience);
+                    if (soundManager.isPlaying(GlitchAmbience)) {
+                        soundManager.stop(GlitchAmbience);
                     }
                 }
 
@@ -151,9 +163,9 @@ public class ClientWrapper {
                 playerComponent.glitchTick = Math.min(playerComponent.glitchTick + 4, 120);
                 playerComponent.glitchTimer = (float) playerComponent.glitchTick / 30;
 
-                if (!soundManager.isPlaying(playerComponent.GlitchAmbience)) {
-                    playerComponent.GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.GlitchAmbience);
+                if (!soundManager.isPlaying(GlitchAmbience)) {
+                    GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
+                    soundManager.play(GlitchAmbience);
                 }
 
 
@@ -170,9 +182,9 @@ public class ClientWrapper {
                 playerComponent.glitchTick = Math.min(playerComponent.glitchTick + 1, 120);
                 playerComponent.glitchTimer = Math.min((float) playerComponent.glitchTick / 120, 1.0f);
 
-                if (!soundManager.isPlaying(playerComponent.GlitchAmbience)) {
-                    playerComponent.GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.GlitchAmbience);
+                if (!soundManager.isPlaying(GlitchAmbience)) {
+                    GlitchAmbience = new SmilerGlitchSoundInstance(playerComponent.player);
+                    soundManager.play(GlitchAmbience);
                 }
             }
 
@@ -276,70 +288,70 @@ public class ClientWrapper {
             ////AMBIENCE////
             RegistryKey<World> levelKey = playerComponent.player.getWorld().getRegistryKey();
 
-            if ((levelKey == BackroomsLevels.LEVEL1_WORLD_KEY || levelKey == BackroomsLevels.LEVEL2_WORLD_KEY) && !soundManager.isPlaying(playerComponent.DeepAmbience)) {
-                playerComponent.DeepAmbience = new AmbientSoundInstance(playerComponent.player);
-                soundManager.play(playerComponent.DeepAmbience);
+            if ((levelKey == BackroomsLevels.LEVEL1_WORLD_KEY || levelKey == BackroomsLevels.LEVEL2_WORLD_KEY) && !soundManager.isPlaying(DeepAmbience)) {
+                DeepAmbience = new AmbientSoundInstance(playerComponent.player);
+                soundManager.play(DeepAmbience);
             }
 
-            if (levelKey == BackroomsLevels.LEVEL2_WORLD_KEY && !soundManager.isPlaying(playerComponent.WaterPipeAmbience) && !soundManager.isPlaying(playerComponent.GasPipeAmbience)) {
-                playerComponent.WaterPipeAmbience = new WaterPipeSoundInstance(playerComponent.player);
-                playerComponent.GasPipeAmbience = new GasPipeSoundInstance(playerComponent.player);
+            if (levelKey == BackroomsLevels.LEVEL2_WORLD_KEY && !soundManager.isPlaying(WaterPipeAmbience) && !soundManager.isPlaying(GasPipeAmbience)) {
+                WaterPipeAmbience = new WaterPipeSoundInstance(playerComponent.player);
+                GasPipeAmbience = new GasPipeSoundInstance(playerComponent.player);
 
-                soundManager.play(playerComponent.WaterPipeAmbience);
-                soundManager.play(playerComponent.GasPipeAmbience);
+                soundManager.play(WaterPipeAmbience);
+                soundManager.play(GasPipeAmbience);
             }
 
             if ((BackroomsLevels.getLevel(playerComponent.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL))
                     instanceof Level2BackroomsLevel level) {
-                if (levelKey == BackroomsLevels.LEVEL2_WORLD_KEY && !soundManager.isPlaying(playerComponent.WarpAmbience) && level.isWarping()) {
-                    playerComponent.WarpAmbience = new CreakingSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.WarpAmbience);
+                if (levelKey == BackroomsLevels.LEVEL2_WORLD_KEY && !soundManager.isPlaying(WarpAmbience) && level.isWarping()) {
+                    WarpAmbience = new CreakingSoundInstance(playerComponent.player);
+                    soundManager.play(WarpAmbience);
                 }
             }
 
             if ((BackroomsLevels.getLevel(playerComponent.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL))
                     instanceof PoolroomsBackroomsLevel level) {
-                if (level.isNoon() && !soundManager.isPlaying(playerComponent.PoolroomsNoonAmbience)) {
-                    playerComponent.PoolroomsNoonAmbience = new PoolroomsNoonAmbienceSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.PoolroomsNoonAmbience);
+                if (level.isNoon() && !soundManager.isPlaying(PoolroomsNoonAmbience)) {
+                    PoolroomsNoonAmbience = new PoolroomsNoonAmbienceSoundInstance(playerComponent.player);
+                    soundManager.play(PoolroomsNoonAmbience);
                 }
             }
 
             if ((BackroomsLevels.getLevel(playerComponent.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL))
                     instanceof PoolroomsBackroomsLevel level) {
-                if (!level.isNoon() && !soundManager.isPlaying(playerComponent.PoolroomsSunsetAmbience)) {
-                    playerComponent.PoolroomsSunsetAmbience = new PoolroomsSunsetAmbienceSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.PoolroomsSunsetAmbience);
+                if (!level.isNoon() && !soundManager.isPlaying(PoolroomsSunsetAmbience)) {
+                    PoolroomsSunsetAmbience = new PoolroomsSunsetAmbienceSoundInstance(playerComponent.player);
+                    soundManager.play(PoolroomsSunsetAmbience);
                 }
             }
 
             if ((BackroomsLevels.getLevel(playerComponent.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL))
                     instanceof Level1BackroomsLevel level) {
-                if (level.getLightState() == BackroomsLevelWithLights.LightState.BLACKOUT && !soundManager.isPlaying(playerComponent.SmilerAmbience)) {
-                    playerComponent.SmilerAmbience = new SmilerAmbienceSoundInstance(playerComponent.player);
-                    soundManager.play(playerComponent.SmilerAmbience);
+                if (level.getLightState() == BackroomsLevelWithLights.LightState.BLACKOUT && !soundManager.isPlaying(SmilerAmbience)) {
+                    SmilerAmbience = new SmilerAmbienceSoundInstance(playerComponent.player);
+                    soundManager.play(SmilerAmbience);
                 }
             }
 
-            if ((levelKey == BackroomsLevels.INFINITE_FIELD_WORLD_KEY || levelKey == BackroomsLevels.LEVEL94_WORLD_KEY) && !soundManager.isPlaying(playerComponent.WindAmbience)) {
-                playerComponent.WindAmbience = new InfiniteGrassAmbienceSoundInstance(playerComponent.player);
-                soundManager.play(playerComponent.WindAmbience);
+            if ((levelKey == BackroomsLevels.INFINITE_FIELD_WORLD_KEY || levelKey == BackroomsLevels.LEVEL94_WORLD_KEY) && !soundManager.isPlaying(WindAmbience)) {
+                WindAmbience = new InfiniteGrassAmbienceSoundInstance(playerComponent.player);
+                soundManager.play(WindAmbience);
             }
 
-            if ((levelKey == BackroomsLevels.LEVEL324_WORLD_KEY) && !soundManager.isPlaying(playerComponent.WindAmbience) && playerComponent.player.getY() > 20) {
-                playerComponent.WindAmbience = new InfiniteGrassAmbienceSoundInstance(playerComponent.player);
-                if (soundManager.isPlaying(playerComponent.WindTunnelAmbience)) {
-                    soundManager.stop(playerComponent.WindTunnelAmbience);
+            if ((levelKey == BackroomsLevels.LEVEL324_WORLD_KEY) && !soundManager.isPlaying(WindAmbience) && playerComponent.player.getY() > 20) {
+                WindAmbience = new InfiniteGrassAmbienceSoundInstance(playerComponent.player);
+                if (soundManager.isPlaying(WindTunnelAmbience)) {
+                    soundManager.stop(WindTunnelAmbience);
                 }
-                soundManager.play(playerComponent.WindAmbience);
+                soundManager.play(WindAmbience);
             }
 
-            if ((levelKey == BackroomsLevels.LEVEL324_WORLD_KEY) && !soundManager.isPlaying(playerComponent.WindTunnelAmbience) && playerComponent.player.getY() < 20) {
-                playerComponent.WindTunnelAmbience = new WindTunnelAmbienceSoundInstance(playerComponent.player);
-                if (soundManager.isPlaying(playerComponent.WindAmbience)) {
-                    soundManager.stop(playerComponent.WindAmbience);
+            if ((levelKey == BackroomsLevels.LEVEL324_WORLD_KEY) && !soundManager.isPlaying(WindTunnelAmbience) && playerComponent.player.getY() < 20) {
+                WindTunnelAmbience = new WindTunnelAmbienceSoundInstance(playerComponent.player);
+                if (soundManager.isPlaying(WindAmbience)) {
+                    soundManager.stop(WindAmbience);
                 }
-                soundManager.play(playerComponent.WindTunnelAmbience);
+                soundManager.play(WindTunnelAmbience);
             }
 
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

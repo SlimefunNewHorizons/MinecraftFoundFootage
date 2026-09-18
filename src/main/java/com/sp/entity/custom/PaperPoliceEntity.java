@@ -81,13 +81,12 @@ public class PaperPoliceEntity extends MobEntity {
 
     private void capture(PlayerEntity player) {
         PlayerComponent component = InitializeComponents.PLAYER.get(player);
-        component.setShouldBeMuted(true);
-        component.sync();
+        this.silenceTicksLeft = 300 + this.random.nextInt(300); // 15 to 30 real seconds
+        component.setMuteTimer(this.silenceTicksLeft);
 
         player.damage(this.getDamageSources().mobAttack(this), 3.0F);
 
         this.silencedPlayer = player.getUuid();
-        this.silenceTicksLeft = 300 + this.random.nextInt(300); // 15 to 30 real seconds
         this.leaveTicks = 60;
         this.getNavigation().stop();
     }
@@ -105,15 +104,6 @@ public class PaperPoliceEntity extends MobEntity {
         }
 
         this.silencedPlayer = null;
-    }
-
-    @Override
-    public void onRemoved() {
-        if (this.silencedPlayer != null) {
-            this.unmutePlayer();
-        }
-
-        super.onRemoved();
     }
 
     //From Enderman. Don't need anything too fancy

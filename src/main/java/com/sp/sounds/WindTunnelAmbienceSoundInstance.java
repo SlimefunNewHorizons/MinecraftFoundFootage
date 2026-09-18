@@ -1,5 +1,6 @@
 package com.sp.sounds;
 
+import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -23,7 +24,7 @@ public class WindTunnelAmbienceSoundInstance extends MovingSoundInstance {
 
     @Override
     public void tick() {
-        if(this.player.isRemoved()){
+        if (this.player.isRemoved() || this.player.getWorld().getRegistryKey() != BackroomsLevels.LEVEL324_WORLD_KEY || this.player.getY() >= 20) {
             this.setDone();
         }
     }

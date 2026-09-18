@@ -4,6 +4,7 @@ import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.command.EventCommand;
 import com.sp.command.GimmeMyInventoryBack;
+import com.sp.command.IntegrityTestCommand;
 import com.sp.command.LevelCommand;
 import com.sp.command.SkinwalkerCommand;
 import com.sp.command.VoiceChatTestCommand;
@@ -78,6 +79,7 @@ public class SPBRevamped implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register(GimmeMyInventoryBack::register);
 		CommandRegistrationCallback.EVENT.register(SkinwalkerCommand::register);
 		CommandRegistrationCallback.EVENT.register(VoiceChatTestCommand::register);
+		CommandRegistrationCallback.EVENT.register(IntegrityTestCommand::register);
 
 		// Thanks Bob Mowzie
 		GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory());

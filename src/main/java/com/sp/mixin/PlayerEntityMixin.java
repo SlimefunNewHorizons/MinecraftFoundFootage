@@ -45,22 +45,23 @@ public abstract class PlayerEntityMixin extends Entity {
         WorldEvents events = InitializeComponents.EVENTS.get(player.getWorld());
 
         if (damageSource.isOf(DamageTypes.OUT_OF_WORLD)) {
-            if (BackroomsLevels.getLevel(player.getWorld()).isPresent()) {
-                player.setPosition(0, 100, 0);
-            } else {
-                player.setPosition(BackroomsLevels.getLevel(player.getWorld()).get().getSpawnPos());
-            }
+            BackroomsLevels.getLevel(player.getWorld()).ifPresent(backroomsLevel -> {
+                player.setPosition(backroomsLevel.getSafeSpawnPos());
+            });
         }
 
-        if (playerComponent.hasBeenCaptured() || playerComponent.isBeingCaptured() || events.activeSkinWalkerEntity.getTarget() == player) {
+        boolean targetingThisPlayer = events.activeSkinWalkerEntity != null && events.activeSkinWalkerEntity.getTarget() == player;
+        if (playerComponent.hasBeenCaptured() || playerComponent.isBeingCaptured() || targetingThisPlayer) {
             if (this.getWorld() instanceof ServerWorld) {
                 ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
 
                 serverPlayer.setCameraEntity(serverPlayer);
             }
 
-            events.activeSkinWalkerEntity.discard();
-            events.activeSkinWalkerEntity = null;
+            if (events.activeSkinWalkerEntity != null) {
+                events.activeSkinWalkerEntity.discard();
+                events.activeSkinWalkerEntity = null;
+            }
 
             playerComponent.setBeingCaptured(false);
             playerComponent.setBeingReleased(false);

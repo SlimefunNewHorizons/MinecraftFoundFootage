@@ -56,10 +56,7 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
             List<LevelTransition> playerList = new ArrayList<>();
 
             if (from instanceof Level0BackroomsLevel && playerComponent.player.getPos().getY() <= 11 && playerComponent.player.isOnGround()) {
-                for (PlayerEntity player : playerComponent.player.getWorld().getPlayers()) {
-                    PlayerComponent otherPlayerComponent = InitializeComponents.PLAYER.get(player);
-                    playerList.add(getLevel1Transition(otherPlayerComponent));
-                }
+                playerList.add(getLevel1Transition(playerComponent));
             }
 
             return playerList;
@@ -106,7 +103,8 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
         if (activeEvent instanceof LightLevelBlackout) {
             this.blackoutCount++;
             if (this.blackoutCount > 2) {
-                while (activeEvent instanceof LightLevelBlackout) {
+                int attempts = 0;
+                while (activeEvent instanceof LightLevelBlackout && attempts++ < 10) {
                     activeEvent = super.getRandomEvent(world);
                 }
             }
@@ -131,7 +129,11 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
     public void readFromNbt(NbtCompound nbt) {
         this.blackoutCount = nbt.getInt("blackoutCount");
         this.intercomCount = nbt.getInt("intercomCount");
-        this.lightState = LightState.valueOf(nbt.getString("lightState"));
+        try {
+            this.lightState = LightState.valueOf(nbt.getString("lightState"));
+        } catch (Exception e) {
+            this.lightState = LightState.ON;
+        }
     }
 
     @Override

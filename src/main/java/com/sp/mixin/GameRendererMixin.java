@@ -84,10 +84,10 @@ public abstract class GameRendererMixin {
         PlayerEntity player = this.client.player;
 
         if(player != null && ConfigStuff.enableSmoothCamera && client.options.getPerspective() == Perspective.FIRST_PERSON){
-            this.smoothYaw = MathStuff.Lerp(this.smoothYaw, deg, ConfigStuff.cameraSmoothing, client.getLastFrameDuration());
-            return this.smoothYaw;
+            this.smoothPitch = MathStuff.Lerp(this.smoothPitch, deg, ConfigStuff.cameraSmoothing, client.getLastFrameDuration());
+            return this.smoothPitch;
         } else {
-            this.smoothYaw = deg;
+            this.smoothPitch = deg;
         }
 
         return deg;
@@ -102,10 +102,10 @@ public abstract class GameRendererMixin {
         PlayerEntity player = this.client.player;
 
         if(player != null && ConfigStuff.enableSmoothCamera && client.options.getPerspective() == Perspective.FIRST_PERSON){
-            this.smoothPitch = MathStuff.Lerp(this.smoothPitch, deg, ConfigStuff.cameraSmoothing, client.getLastFrameDuration());
-            return this.smoothPitch;
+            this.smoothYaw = MathStuff.Lerp(this.smoothYaw, deg, ConfigStuff.cameraSmoothing, client.getLastFrameDuration());
+            return this.smoothYaw;
         } else {
-            this.smoothPitch = deg;
+            this.smoothYaw = deg;
         }
 
         return deg;

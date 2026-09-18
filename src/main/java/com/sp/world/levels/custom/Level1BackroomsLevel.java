@@ -43,10 +43,7 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
 
 
             if (from instanceof Level1BackroomsLevel && playerComponent.player.getPos().getY() <= 12 && playerComponent.player.isOnGround()) {
-                for (PlayerEntity player : playerComponent.player.getWorld().getPlayers()) {
-                    PlayerComponent otherPlayerComponent = InitializeComponents.PLAYER.get(player);
-                    playerList.add(getLevel2Transition(otherPlayerComponent));
-                }
+                playerList.add(getLevel2Transition(playerComponent));
             }
 
             return playerList;
@@ -146,8 +143,21 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
 
     @Override
     public void readFromNbt(NbtCompound nbt) {
-        this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getString("lightState"));
+        try {
+            this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getString("lightState"));
+        } catch (Exception e) {
+            this.lightState = BackroomsLevelWithLights.LightState.ON;
+        }
+    }
 
+    @Override
+    public boolean rendersSky() {
+        return false;
+    }
+
+    @Override
+    public boolean rendersClouds() {
+        return false;
     }
 
     @Override

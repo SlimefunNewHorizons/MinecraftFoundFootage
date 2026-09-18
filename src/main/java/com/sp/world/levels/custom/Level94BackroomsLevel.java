@@ -1,7 +1,6 @@
 package com.sp.world.levels.custom;
 
 import com.sp.SPBRevamped;
-import com.sp.SPBRevampedClient;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.init.BackroomsLevels;
 import com.sp.world.events.infinite_grass.InfiniteGrassAmbience;
@@ -89,7 +88,7 @@ public class Level94BackroomsLevel extends BackroomsLevel {
     }
 
     private LevelTransition getCastleExit(PlayerComponent playerComponent) {
-        BackroomsLevel[] mainLevels = {
+        BackroomsLevel[] mainLevels = new BackroomsLevel[]{
                 BackroomsLevels.LEVEL0_BACKROOMS_LEVEL,
                 BackroomsLevels.LEVEL1_BACKROOMS_LEVEL,
                 BackroomsLevels.LEVEL2_BACKROOMS_LEVEL
@@ -99,15 +98,6 @@ public class Level94BackroomsLevel extends BackroomsLevel {
         return new LevelTransition(
                 20,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
-
-                    if (world.isClient()) {
-                        if (tick == 14) {
-                            SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
-                        }
-                        return;
-                    }
-
                     if (tick == 9) {
                         teleport.playerComponent().setShouldNoClip(true);
                         teleport.playerComponent().sync();
@@ -133,15 +123,6 @@ public class Level94BackroomsLevel extends BackroomsLevel {
         return new LevelTransition(
                 10,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
-
-                    if (world.isClient()) {
-                        if (tick == 4) {
-                            SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
-                        }
-                        return;
-                    }
-
                     if (tick == 9) {
                         teleport.playerComponent().setShouldNoClip(true);
                         teleport.playerComponent().sync();

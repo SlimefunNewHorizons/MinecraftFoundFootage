@@ -143,13 +143,16 @@ public class Level94ChunkGenerator extends BackroomsChunkGenerator {
                 }
 
                 // Ghost houses near the road on elevated terrain
-                int terrainH = getTerrainHeight(wx, wz);
-                if (hasHouse && !placedHouse && z == 0 && wz >= 8 && wz <= 14) {
-                    this.placeGhostHouse(chunk, mutable, random, false, houseAnchorI, terrainH);
-                    placedHouse = true;
-                } else if (hasHouse && !placedHouse && z == -16 && wz >= -14 && wz <= -8) {
-                    this.placeGhostHouse(chunk, mutable, random, true, houseAnchorI, terrainH);
-                    placedHouse = true;
+                if (hasHouse && !placedHouse) {
+                    if (z == 0 && wz >= 8 && wz <= 14) {
+                        int terrainH = getTerrainHeight(wx, wz);
+                        this.placeGhostHouse(chunk, mutable, random, false, houseAnchorI, terrainH);
+                        placedHouse = true;
+                    } else if (z == -16 && wz >= -14 && wz <= -8) {
+                        int terrainH = getTerrainHeight(wx, wz);
+                        this.placeGhostHouse(chunk, mutable, random, true, houseAnchorI, terrainH);
+                        placedHouse = true;
+                    }
                 }
             }
         }
@@ -158,7 +161,6 @@ public class Level94ChunkGenerator extends BackroomsChunkGenerator {
         if ((z == 0 || z == -16) && random.nextInt(100) < 18) {
             int fenceJ = z == 0 ? 6 : 10;
             int fenceWz = z + fenceJ;
-            int fenceHeight = getTerrainHeight(x, fenceWz);
             int startI = random.nextBetween(2, 6);
             int len = random.nextBetween(4, 7);
             for (int fi = startI; fi < startI + len && fi < 16; fi++) {

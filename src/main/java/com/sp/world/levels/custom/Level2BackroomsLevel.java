@@ -22,7 +22,7 @@ public class Level2BackroomsLevel extends BackroomsLevel {
         super("level2", Level2ChunkGenerator.CODEC, new Vec3d(0.5, 20, 8), BackroomsLevels.LEVEL2_WORLD_KEY);
 
         this.registerEvent("warp", Level2Warp::new);
-        this.registerEvent("abience", Level2Ambience::new);
+        this.registerEvent("ambience", Level2Ambience::new);
 
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
@@ -105,5 +105,15 @@ public class Level2BackroomsLevel extends BackroomsLevel {
     @Override
     public void transitionIn(CrossDimensionTeleport crossDimensionTeleport) {
 
+    }
+
+    @Override
+    public boolean rendersSky() {
+        return false;
+    }
+
+    @Override
+    public boolean rendersClouds() {
+        return false;
     }
 }

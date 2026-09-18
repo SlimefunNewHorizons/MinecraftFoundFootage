@@ -144,7 +144,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
 
         this.setInvulnerable(this.component.isInTrueForm());
 
-        if (this.getWorld().isClient && this.component.isInTrueForm()) {
+        if (!this.getWorld().isClient && this.component.isInTrueForm()) {
             this.tickComponentsServer(this);
         }
 

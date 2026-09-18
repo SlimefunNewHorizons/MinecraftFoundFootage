@@ -15,7 +15,6 @@ import dev.onyxstudios.cca.api.v3.component.tick.ClientTickingComponent;
 import dev.onyxstudios.cca.api.v3.component.tick.ServerTickingComponent;
 import net.fabricmc.fabric.api.dimension.v1.FabricDimensions;
 import net.minecraft.block.Blocks;
-import net.minecraft.client.sound.MovingSoundInstance;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -83,28 +82,18 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private boolean isBeingReleased;
     private Entity targetEntity;
     private int skinWalkerLookDelay;
-    private boolean shouldBeMuted;
-    private boolean isSpeaking;
+    private volatile boolean shouldBeMuted;
+    private int muteTimer;
+    private volatile boolean isSpeaking;
     private int speakingBuffer;
     private float prevSpeakingTime;
     private boolean visibleToEntity;
     private int visibilityTimer;
     private int visibilityTimerCooldown;
-    private boolean talkingTooLoud;
+    private volatile boolean talkingTooLoud;
     private int talkingTooLoudTimer;
     private GameMode prevGameMode;
     private String skinWalkerLang = "auto";
-
-    public MovingSoundInstance DeepAmbience;
-    public MovingSoundInstance GasPipeAmbience;
-    public MovingSoundInstance WaterPipeAmbience;
-    public MovingSoundInstance WarpAmbience;
-    public MovingSoundInstance PoolroomsNoonAmbience;
-    public MovingSoundInstance PoolroomsSunsetAmbience;
-    public MovingSoundInstance GlitchAmbience;
-    public MovingSoundInstance SmilerAmbience;
-    public MovingSoundInstance WindAmbience;
-    public MovingSoundInstance WindTunnelAmbience;
 
     private boolean canSeeActiveSkinWalker;
     private boolean prevFlashLightOn;
@@ -321,6 +310,14 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
     public boolean shouldBeMuted() {return shouldBeMuted;}
     public void setShouldBeMuted(boolean shouldStayUnmuted) {this.shouldBeMuted = shouldStayUnmuted;}
+    public void setMuteTimer(int ticks) {
+        this.muteTimer = ticks;
+        this.setShouldBeMuted(true);
+        this.sync();
+    }
+    public int getMuteTimer() {
+        return this.muteTimer;
+    }
 
     public boolean isSpeaking() {
         return isSpeaking;
@@ -385,6 +382,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.hasBeenCaptured = tag.getBoolean("hasBeenCaptured");
         this.isBeingReleased = tag.getBoolean("isBeingReleased");
         this.shouldBeMuted = tag.getBoolean("shouldBeMuted");
+        this.muteTimer = tag.getInt("muteTimer");
         this.shouldGlitch = tag.getBoolean("shouldGlitch");
         this.shouldInflictGlitchDamage = tag.getBoolean("shouldInflictGlitchDamage");
         this.teleportingTimer = tag.getInt("teleportingTimer");
@@ -416,6 +414,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("hasBeenCaptured", this.hasBeenCaptured);
         tag.putBoolean("isBeingReleased", this.isBeingReleased);
         tag.putBoolean("shouldBeMuted", this.shouldBeMuted);
+        tag.putInt("muteTimer", this.muteTimer);
         tag.putBoolean("shouldGlitch", this.shouldGlitch);
         tag.putBoolean("shouldInflictGlitchDamage", this.shouldInflictGlitchDamage);
         tag.putInt("teleportingTimer", this.teleportingTimer);
@@ -423,7 +422,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
         if (this.checkpoint != null) {
             NbtCompound checkpointNbt = new NbtCompound();
-            checkpointNbt.putString("dimension", this.player.getWorld().getRegistryKey().getValue().toString());
+            checkpointNbt.putString("dimension", this.checkpoint.getDimension().getValue().toString());
             checkpointNbt.putInt("x", this.checkpoint.getPos().getX());
             checkpointNbt.putInt("y", this.checkpoint.getPos().getY());
             checkpointNbt.putInt("z", this.checkpoint.getPos().getZ());
@@ -433,7 +432,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         if (BackroomsLevels.isInBackrooms(this.player.getWorld().getRegistryKey())) {
             tag.put("inventory", this.playerSavedMainInventory.toNbtList());
             tag.put("inventoryOffHand", this.playerSavedOffhandInventory.toNbtList());
-            tag.put("inventoryOffHand", this.playerSavedArmorInventory.toNbtList());
+            tag.put("inventoryArmor", this.playerSavedArmorInventory.toNbtList());
         }
     }
 
@@ -449,6 +448,15 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     @Override
     public void serverTick() {
         getPrevSettings();
+
+        //*Update Mute Timer
+        if (this.muteTimer > 0) {
+            this.muteTimer--;
+            if (this.muteTimer <= 0 && !this.isBeingCaptured && !this.hasBeenCaptured) {
+                this.setShouldBeMuted(false);
+                this.sync();
+            }
+        }
 
         //*Update Stamina
         updateStamina();

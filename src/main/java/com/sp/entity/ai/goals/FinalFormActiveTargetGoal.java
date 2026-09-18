@@ -36,7 +36,7 @@ public class FinalFormActiveTargetGoal extends TrackTargetGoal {
                             .setPredicate(EntityPredicates.EXCEPT_CREATIVE_OR_SPECTATOR::test),
                     this.mob,
                     this.mob.getBoundingBox().expand(100));
-            playerEntityList.sort(Comparator.comparingDouble(player -> -this.mob.getPos().squaredDistanceTo(player.getPos().x, player.getPos().y, player.getPos().z)));
+            playerEntityList.sort(Comparator.comparingDouble(player -> this.mob.getPos().squaredDistanceTo(player.getPos().x, player.getPos().y, player.getPos().z)));
 
             for (PlayerEntity player : playerEntityList){
                 if(this.mob.canSee(player)){

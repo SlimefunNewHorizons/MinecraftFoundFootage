@@ -78,7 +78,11 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
             }
         }
 
-        this.activeSkinwalkerTarget = tag.getUuid("activeSkinwalkerTarget");
+        if (tag.containsUuid("activeSkinwalkerTarget")) {
+            this.activeSkinwalkerTarget = tag.getUuid("activeSkinwalkerTarget");
+        } else {
+            this.activeSkinwalkerTarget = null;
+        }
         this.done = tag.getBoolean("skinwalkerDone");
     }
 
@@ -90,7 +94,9 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
             }
         }
 
-        tag.putUuid("activeSkinwalkerTarget", this.activeSkinwalkerTarget);
+        if (this.activeSkinwalkerTarget != null) {
+            tag.putUuid("activeSkinwalkerTarget", this.activeSkinwalkerTarget);
+        }
         tag.putBoolean("skinwalkerDone", this.done);
     }
 
@@ -200,9 +206,11 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
         //Thank goodness for https://stackoverflow.com/questions/2776176/get-minvalue-of-a-mapkey-double
         Map.Entry<UUID, Float> min = null;
         for (Map.Entry<UUID, Float> entry : BackroomsVoicechatPlugin.speakingTime.entrySet()) {
-            if (min == null || min.getValue() > entry.getValue()) {
-                min = entry;
-
+            PlayerEntity p = this.world.getPlayerByUuid(entry.getKey());
+            if (p != null && p.isAlive()) {
+                if (min == null || min.getValue() > entry.getValue()) {
+                    min = entry;
+                }
             }
         }
 

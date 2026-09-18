@@ -290,6 +290,9 @@ public class BirdRenderer {
         glDeleteBuffers(this.positionsVbo);
         glDeleteBuffers(this.indirectVbo);
         glUnmapBuffer(GL_DRAW_INDIRECT_BUFFER);
+        if (this.vertexBuffer != null) {
+            this.vertexBuffer.close();
+        }
         this.cmd.clear();
         this.cmd = null;
     }

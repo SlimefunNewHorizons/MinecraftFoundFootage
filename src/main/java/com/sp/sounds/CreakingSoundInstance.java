@@ -27,6 +27,7 @@ public class CreakingSoundInstance extends MovingSoundInstance {
     @Override
     public void tick() {
         if (!((BackroomsLevels.getLevel(player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof Level2BackroomsLevel level)) {
+            this.setDone();
             return;
         }
 

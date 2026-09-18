@@ -26,12 +26,12 @@ public class PoolroomsSunsetAmbienceSoundInstance extends MovingSoundInstance {
     @Override
     public void tick() {
         if (!((BackroomsLevels.getLevel(player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof PoolroomsBackroomsLevel level)) {
+            this.setDone();
             return;
         }
 
         if(level.isNoon() || this.player.isRemoved()){
             this.setDone();
-            this.repeat = true;
         }
     }
 }

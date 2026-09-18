@@ -209,10 +209,12 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
                         BlockPos StructurePos = mutable.set(ax + ((size - 1) * ax) + originX, 18, ay + ((size - 1) * ay) + originY);
 
                         boolean clear = true;
+                        BlockPos.Mutable checkPos = new BlockPos.Mutable();
                         for (int ry = -1; ry <= roomHeight; ry++) {
                             for (int bx = -1; bx <= roomWidth; bx++) {
                                 if (clear) {
-                                    if (world.getBlockState(new BlockPos(StructurePos.getX() + bx, 18, StructurePos.getZ() + ry)) == Blocks.PURPLE_WOOL.getDefaultState()) {
+                                    checkPos.set(StructurePos.getX() + bx, 18, StructurePos.getZ() + ry);
+                                    if (world.getBlockState(checkPos) == Blocks.PURPLE_WOOL.getDefaultState()) {
                                         clear = false;
                                         break;
                                     }
@@ -254,7 +256,7 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
         }
         int start = dimIdx + dimPrefix.length();
         String dims = path.substring(start);
-        String[] parts = dims.split("_");
+        String[] parts = dims.split("[_xX]");
         if (parts.length < 2) {
             return 16;
         }

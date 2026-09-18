@@ -4,8 +4,10 @@ import com.sp.SPBRevampedClient;
 import com.sp.block.entity.EmergencyLightBlockEntity;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
+import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.BackroomsLevelWithLights;
 import com.sp.world.levels.custom.Level0BackroomsLevel;
+import java.util.Optional;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.block.entity.BlockEntity;
@@ -44,23 +46,26 @@ public class EmergencyAlarmSoundInstance extends MovingSoundInstance {
     @Override
     public void tick() {
         World world = this.entity.getWorld();
+        if (world == null || this.entity.isRemoved()) {
+            this.setDone();
+            return;
+        }
 
-        BackroomsLevels.getLevel(world).ifPresent((backroomsLevel -> {
-            if (backroomsLevel instanceof Level0BackroomsLevel level) {
-                if(world != null) {
-                    if (!this.entity.isRemoved() &&
-                            this.entity.getPos().isWithinDistance(player.getPos(), 80.0f) &&
-                            level.getLightState() != BackroomsLevelWithLights.LightState.BLACKOUT &&
-                            !SPBRevampedClient.blackScreen)
-                    {
-                        this.pitch = 1.0F;
-                        this.volume = 10.0F;
-                    } else {
-                        this.setDone();
-                        ((EmergencyLightBlockEntity) entity).setEmergencyAlarm(false);
-                    }
-                }
+        Optional<BackroomsLevel> levelOpt = BackroomsLevels.getLevel(world);
+        if (levelOpt.isPresent() && levelOpt.get() instanceof Level0BackroomsLevel level) {
+            if (this.entity.getPos().isWithinDistance(player.getPos(), 80.0f) &&
+                    level.getLightState() != BackroomsLevelWithLights.LightState.BLACKOUT &&
+                    !SPBRevampedClient.blackScreen)
+            {
+                this.pitch = 1.0F;
+                this.volume = 10.0F;
+            } else {
+                this.setDone();
+                ((EmergencyLightBlockEntity) entity).setEmergencyAlarm(false);
             }
-        }));
+        } else {
+            this.setDone();
+            ((EmergencyLightBlockEntity) entity).setEmergencyAlarm(false);
+        }
     }
 }

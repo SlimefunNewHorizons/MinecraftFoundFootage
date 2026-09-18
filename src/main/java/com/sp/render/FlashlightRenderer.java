@@ -89,6 +89,15 @@ public class FlashlightRenderer {
     }
 
     public void clearFlashlights(){
+        for (ArrayList<AreaLight> areaLightList : flashLightList2.values()) {
+            if (areaLightList != null) {
+                for (AreaLight areaLights : areaLightList) {
+                    try {
+                        VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(areaLights);
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
         this.flashLightList2.clear();
     }
 }

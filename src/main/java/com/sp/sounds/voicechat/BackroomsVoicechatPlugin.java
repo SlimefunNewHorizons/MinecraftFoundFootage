@@ -12,6 +12,8 @@ import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.api.opus.OpusDecoder;
 import de.maxhenkel.voicechat.voice.common.Utils;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.random.Random;
@@ -52,9 +54,11 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
 
     @Override
     public void registerEvents(EventRegistration registration) {
-        registration.registerEvent(OpenALSoundEvent.class, this::SkinWalkerVoicesPitchDown);
-        registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, this::processLocationalSound);
-        registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, this::processEntitySound);
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            registration.registerEvent(OpenALSoundEvent.class, this::SkinWalkerVoicesPitchDown);
+            registration.registerEvent(ClientReceiveSoundEvent.LocationalSound.class, this::processLocationalSound);
+            registration.registerEvent(ClientReceiveSoundEvent.EntitySound.class, this::processEntitySound);
+        }
         registration.registerEvent(MicrophonePacketEvent.class, this::recordPlayersTalking);
         registration.registerEvent(VoicechatServerStoppedEvent.class, this::onServerStop);
         registration.registerEvent(PlayerDisconnectedEvent.class, this::playerDisconnect);
@@ -198,11 +202,14 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
                 totalData = new short[0];
             }
 
-            short[] result = new short[totalData.length + data.length];
-            System.arraycopy(totalData, 0, result, 0, totalData.length);
-            System.arraycopy(data, 0, result, totalData.length, data.length);
-            totalData = result;
-            totalSoundData.put(player.getUuid(), totalData);
+            int maxSamples = 48000 * 10; // Cap at 10 seconds to prevent unbounded heap growth
+            if (totalData.length < maxSamples) {
+                int toCopy = Math.min(data.length, maxSamples - totalData.length);
+                short[] result = new short[totalData.length + toCopy];
+                System.arraycopy(totalData, 0, result, 0, totalData.length);
+                System.arraycopy(data, 0, result, totalData.length, toCopy);
+                totalSoundData.put(player.getUuid(), result);
+            }
 
             return;
         }
@@ -279,6 +286,9 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         UUID playerUUID = playerDisconnectedEvent.getPlayerUuid();
         this.removePlayerDecoder(playerUUID, decoders.get(playerUUID));
         speakingTime.remove(playerUUID);
+        totalSoundData.remove(playerUUID);
+        wasSpeaking.remove(playerUUID);
+        randomSpeakingList.remove(playerUUID);
     }
 
     private void onServerStop(VoicechatServerStoppedEvent voicechatServerStoppedEvent) {

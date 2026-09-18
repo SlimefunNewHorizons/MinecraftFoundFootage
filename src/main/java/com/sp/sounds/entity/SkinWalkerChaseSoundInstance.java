@@ -43,7 +43,7 @@ public class SkinWalkerChaseSoundInstance extends MovingSoundInstance {
             this.beginFade = true;
         }
 
-        if(this.component.isChasing() && this.beginFade){
+        if(!this.entity.isRemoved() && this.component.isChasing() && this.beginFade){
             this.beginFade = false;
             this.ticksToFade = 80;
         }
