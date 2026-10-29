@@ -48,6 +48,7 @@ float getGrassHeightGradient(float height){
 
 out vec3 localPos;
 out vec3 normal;
+out float bladeBase;
 
 float mod289(float x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
 vec4 mod289(vec4 x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
@@ -85,6 +86,7 @@ void main() {
     cameraPos.xz = vec2(cameraX, cameraZ);
 
     vec3 offset = myBuffer.position[gl_InstanceID];
+    bladeBase = offset.y;
 
     vec3 WorldPos = offset + floor(VeilCamera.CameraPosition);
     float rand = hash12(WorldPos.xz);

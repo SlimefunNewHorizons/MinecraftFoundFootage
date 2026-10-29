@@ -219,6 +219,24 @@ public class ResponseGenerator {
             1000
         ));
 
+        templates.put("fear", new TemplateCategory(
+            Arrays.asList("angst", "hilfe", "hilf", "was war das", "oh gott", "gruselig", "unheimlich"),
+            Arrays.asList("was ist los", "alles gut?", "ruhig", "keine angst", "was war das", "beruhig dich", "entspann dich", "ist nichts"),
+            800
+        ));
+
+        templates.put("hostile", new TemplateCategory(
+            Arrays.asList("geh weg", "hau ab", "verschwinde", "stirb", "töte", "lass mich"),
+            Arrays.asList("warum?", "was hab ich getan", "ruhig", "was ist dein problem", "ich hab nichts gemacht", "chill mal", "was soll das"),
+            200
+        ));
+
+        templates.put("question", new TemplateCategory(
+            Arrays.asList("was", "wie", "wann", "warum", "wieso", "welche", "wo", "wer", "?"),
+            Arrays.asList("keine ahnung", "weiss nicht", "wer weiss", "was meinst du?", "hä?", "nochmal bitte", "versteh ich nicht", "was?"),
+            500
+        ));
+
         templatesByLang.put("de", templates);
     }
 
@@ -233,13 +251,13 @@ public class ResponseGenerator {
 
         templates.put("identity", new TemplateCategory(
             Arrays.asList("qui", "es-tu", "que fais-tu", "c'est qui"),
-            Arrays.asList("je explore", "un joueur", "je ne sais pas", "je me balade", "perdu", "nouveau ici", "rien"),
+            Arrays.asList("j'explore", "un joueur", "je ne sais pas", "je me balade", "perdu", "nouveau ici", "rien"),
             0
         ));
 
         templates.put("location", new TemplateCategory(
             Arrays.asList("où", "tu es", "là-bas", "ici"),
-            Arrays.asList("ici", "pas loin", "autour", "perdu", "je explore", "dans un couloir", "je ne sais pas"),
+            Arrays.asList("ici", "pas loin", "autour", "perdu", "j'explore", "dans un couloir", "je ne sais pas"),
             300
         ));
 
@@ -253,6 +271,24 @@ public class ResponseGenerator {
             new ArrayList<>(),
             Arrays.asList("oui", "non", "peut-être", "je ne sais pas", "d'accord", "ok", "bien", "mouais", "hmm", "voilà", "intéressant", "ah"),
             1000
+        ));
+
+        templates.put("fear", new TemplateCategory(
+            Arrays.asList("peur", "aide", "aidez", "au secours", "c'était quoi", "mon dieu", "flippant"),
+            Arrays.asList("qu'est-ce qui se passe", "ça va?", "calme-toi", "n'aie pas peur", "c'était quoi ça", "détends-toi", "c'est rien", "relax"),
+            800
+        ));
+
+        templates.put("hostile", new TemplateCategory(
+            Arrays.asList("va-t'en", "dégage", "pars", "meurs", "tue", "laisse-moi"),
+            Arrays.asList("pourquoi?", "j'ai rien fait", "calme-toi", "c'est quoi ton problème", "qu'est-ce que j'ai fait", "du calme", "quoi?"),
+            200
+        ));
+
+        templates.put("question", new TemplateCategory(
+            Arrays.asList("quoi", "comment", "quand", "pourquoi", "quel", "quelle", "où", "qui", "?"),
+            Arrays.asList("aucune idée", "je sais pas", "qui sait", "tu veux dire quoi?", "hein?", "répète", "je comprends pas", "quoi?"),
+            500
         ));
 
         templatesByLang.put("fr", templates);
@@ -291,6 +327,24 @@ public class ResponseGenerator {
             1000
         ));
 
+        templates.put("fear", new TemplateCategory(
+            Arrays.asList("paura", "aiuto", "aiutami", "cos'era", "oddio", "spaventoso"),
+            Arrays.asList("che succede", "tutto bene?", "calmati", "non avere paura", "cos'era quello", "rilassati", "non è niente", "tranquillo"),
+            800
+        ));
+
+        templates.put("hostile", new TemplateCategory(
+            Arrays.asList("vattene", "vai via", "sparisci", "muori", "uccidi", "lasciami"),
+            Arrays.asList("perché?", "cosa ho fatto", "calmati", "qual è il tuo problema", "non ho fatto niente", "tranquillo", "che c'è?"),
+            200
+        ));
+
+        templates.put("question", new TemplateCategory(
+            Arrays.asList("cosa", "come", "quando", "perché", "perche", "quale", "dove", "chi", "?"),
+            Arrays.asList("non lo so", "boh", "chi lo sa", "cosa intendi?", "eh?", "ripeti", "non capisco", "cosa?"),
+            500
+        ));
+
         templatesByLang.put("it", templates);
     }
 
@@ -327,15 +381,45 @@ public class ResponseGenerator {
             1000
         ));
 
+        templates.put("fear", new TemplateCategory(
+            Arrays.asList("medo", "ajuda", "socorro", "o que foi isso", "meu deus", "assustador"),
+            Arrays.asList("o que houve", "tudo bem?", "calma", "não tenha medo", "o que foi isso", "relaxa", "não é nada", "tranquilo"),
+            800
+        ));
+
+        templates.put("hostile", new TemplateCategory(
+            Arrays.asList("vai embora", "sai daqui", "some", "morre", "mata", "me deixa"),
+            Arrays.asList("por quê?", "o que eu fiz", "calma", "qual é o seu problema", "não fiz nada", "relaxa mano", "que foi?"),
+            200
+        ));
+
+        templates.put("question", new TemplateCategory(
+            Arrays.asList("que", "como", "quando", "porque", "qual", "onde", "quem", "?"),
+            Arrays.asList("não sei", "sei lá", "quem sabe", "como assim?", "hein?", "repete", "não entendi", "o quê?"),
+            500
+        ));
+
         templatesByLang.put("pt", templates);
     }
 
+    private static final List<String> CATEGORY_ORDER = List.of("fear", "hostile", "identity", "location", "greeting", "question");
+
     public ResponseResult generateResponse(String heardInput, SkinWalkerEntity entity) {
+        return generateResponse(heardInput, entity, null);
+    }
+
+    /**
+     * @param heardInput   what the SkinWalker heard: the text said/written, or {@code "voice_<name>"} when it only
+     *                     knows that somebody talked.
+     * @param languageHint the language of the input if it is already known (e.g. the speech-to-text model's
+     *                     language), or null to detect it from the text.
+     */
+    public ResponseResult generateResponse(String heardInput, SkinWalkerEntity entity, String languageHint) {
         if (heardInput == null || heardInput.isEmpty()) {
             return null;
         }
 
-        String lower = heardInput.toLowerCase().trim();
+        String lower = heardInput.toLowerCase(Locale.ROOT).trim();
 
         if (lower.equals(lastHeardInput)) {
             repetitionCount++;
@@ -344,8 +428,8 @@ public class ResponseGenerator {
         }
         lastHeardInput = lower;
 
-        String lang = detectLanguage(entity, lower);
-        Map<String, TemplateCategory> templates = templatesByLang.getOrDefault(lang, templatesByLang.get("en"));
+        String lang = detectLanguage(entity, lower, languageHint);
+        Map<String, TemplateCategory> templates = templatesByLang.getOrDefault(lang, templatesByLang.get("universal"));
 
         if (lower.startsWith("voice_")) {
             TemplateCategory voiceTemplate = templates.get("voice_detected");
@@ -355,34 +439,22 @@ public class ResponseGenerator {
             return new ResponseResult(responseText, latency, "voice_", lang);
         }
 
+        Set<String> words = LanguageDetector.tokenize(lower);
         TemplateCategory selected = null;
         String matchedKeyword = null;
 
-        boolean hasQuestionWord = lower.contains("que") || lower.contains("como") ||
-            lower.contains("quien") || lower.contains("donde") || lower.contains("cuando") ||
-            lower.contains("cuanto") || lower.contains("por que") || lower.contains("para que") ||
-            lower.contains("cuales") || lower.contains("?") ||
-            lower.contains("what") || lower.contains("how") || lower.contains("when") ||
-            lower.contains("where") || lower.contains("who") || lower.contains("why") ||
-            lower.contains("which");
+        for (String category : CATEGORY_ORDER) {
+            TemplateCategory template = templates.get(category);
+            if (template == null) continue;
 
-        if (hasQuestionWord) {
-            selected = templates.get("question");
-            matchedKeyword = "question";
-        }
-
-        if (selected == null) {
-            for (Map.Entry<String, TemplateCategory> entry : templates.entrySet()) {
-                if (entry.getKey().equals("voice_detected") || entry.getKey().equals("question")) continue;
-                for (String keyword : entry.getValue().keywords) {
-                    if (lower.contains(keyword)) {
-                        selected = entry.getValue();
-                        matchedKeyword = keyword;
-                        break;
-                    }
+            for (String keyword : template.keywords) {
+                if (matchesKeyword(lower, words, keyword)) {
+                    selected = template;
+                    matchedKeyword = keyword;
+                    break;
                 }
-                if (selected != null) break;
             }
+            if (selected != null) break;
         }
 
         if (selected == null) {
@@ -404,47 +476,43 @@ public class ResponseGenerator {
         return new ResponseResult(responseText, latencyModifier, matchedKeyword, lang);
     }
 
-    private String detectLanguage(SkinWalkerEntity entity, String input) {
+    /**
+     * Single words must match a whole word ("hi" must not match "this"), phrases are searched as text.
+     */
+    private static boolean matchesKeyword(String lower, Set<String> words, String keyword) {
+        if (keyword.equals("?")) return lower.contains("?");
+        if (keyword.indexOf(' ') >= 0 || keyword.indexOf('-') >= 0 || keyword.indexOf('\'') >= 0) {
+            return lower.contains(keyword);
+        }
+        return words.contains(keyword);
+    }
+
+    /**
+     * Priority: the target player's language setting, then the given hint, then detection from the text.
+     */
+    private String detectLanguage(SkinWalkerEntity entity, String input, String languageHint) {
         UUID targetUUID = InitializeComponents.SKIN_WALKER.get(entity).getTargetPlayerUUID();
         if (targetUUID != null) {
             PlayerEntity target = entity.getWorld().getPlayerByUuid(targetUUID);
             if (target != null) {
                 PlayerComponent playerComp = InitializeComponents.PLAYER.get(target);
                 String setting = playerComp.getSkinWalkerLang();
-                if (setting != null && !setting.equals("auto")) {
+                if (setting != null && !setting.equals("auto") && templatesByLang.containsKey(setting)) {
                     return setting;
                 }
             }
         }
 
-        if (input.matches(".*[\\u0400-\\u04FF].*")) return "ru";
-        if (input.matches(".*[\\u0600-\\u06FF].*")) return "ar";
-        if (input.matches(".*[\\u4E00-\\u9FFF].*")) return "zh";
-        if (input.matches(".*[\\u3040-\\u309F\\u30A0-\\u30FF].*")) return "ja";
-        if (input.matches(".*[\\uAC00-\\uD7AF].*")) return "ko";
-        if (input.matches(".*[\\u0E00-\\u0E7F].*")) return "th";
-        if (input.matches(".*[\\u0900-\\u097F].*")) return "hi";
+        if (languageHint != null && templatesByLang.containsKey(languageHint)) {
+            return languageHint;
+        }
 
-        if (input.matches(".*\\b(hola|que|como|donde|quien|por que|si|no|buenas|gracias|por favor|este|esta|esas|estos|aqui|alla|muy|tambien|pero|porque|cuando|cuanto)\\b.*")) {
+        if (input.startsWith("voice_")) {
             return "es";
         }
-        if (input.matches(".*\\b(hello|hey|what|how|where|who|why|yes|no|please|thanks|the|is|are|was|were|this|that|here|there|very|also|but|because|when|where)\\b.*")) {
-            return "en";
-        }
-        if (input.matches(".*\\b(hallo|wie|wo|wer|was|warum|ja|nein|danke|bitte|guten|heute|morgen|abend|nacht|tag)\\b.*")) {
-            return "de";
-        }
-        if (input.matches(".*\\b(bonjour|salut|comment|pourquoi|oui|merci|s'il|je|tu|nous|vous|ils|elles|bonsoir|matin|soir|nuit)\\b.*")) {
-            return "fr";
-        }
-        if (input.matches(".*\\b(ciao|come|dove|chi|cosa|perché|si|no|grazie|per favore|buongiorno|buonasera|notte|giorno|sera)\\b.*")) {
-            return "it";
-        }
-        if (input.matches(".*\\b(ola|como|onde|quem|o que|por que|sim|não|obrigado|por favor|bom|boa|dia|noite|tarde)\\b.*")) {
-            return "pt";
-        }
 
-        return "universal";
+        String detected = LanguageDetector.detect(input);
+        return detected != null ? detected : "universal";
     }
 
     public class ResponseResult {

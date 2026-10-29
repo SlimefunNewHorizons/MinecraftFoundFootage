@@ -9,9 +9,11 @@ import com.sp.cca_stuff.WorldEvents;
 import com.sp.compat.modmenu.ConfigDefinitions;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.entity.client.model.SmilerModel;
+import com.sp.entity.client.model.NeighborModel;
 import com.sp.entity.client.model.PaperPoliceModel;
 import com.sp.entity.client.renderer.SkinWalkerRenderer;
 import com.sp.entity.client.renderer.SmilerRenderer;
+import com.sp.entity.client.renderer.NeighborRenderer;
 import com.sp.entity.client.renderer.PaperPoliceRenderer;
 import com.sp.entity.client.renderer.WalkerRenderer;
 import com.sp.init.*;
@@ -29,6 +31,8 @@ import com.sp.render.gui.StaminaBar;
 import com.sp.render.gui.TitleText;
 import com.sp.render.pbr.BlockIdMap;
 import com.sp.render.pbr.PbrRegistry;
+import com.sp.util.TickScheduler;
+import com.sp.sounds.Level94Ambience;
 import com.sp.util.AIConsentStore;
 import com.sp.util.MathStuff;
 import com.sp.util.TickTimer;
@@ -160,9 +164,11 @@ public class SPBRevampedClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.WALKER_ENTITY, WalkerRenderer::new);
         EntityRendererRegistry.register(ModEntities.SMILER_ENTITY, SmilerRenderer::new);
         EntityRendererRegistry.register(ModEntities.PAPER_POLICE_ENTITY, PaperPoliceRenderer::new);
+        EntityRendererRegistry.register(ModEntities.NEIGHBOR_ENTITY, NeighborRenderer::new);
 
         EntityModelLayerRegistry.registerModelLayer(ModModelLayers.SMILER, SmilerModel::getTexturedModelData);
         EntityModelLayerRegistry.registerModelLayer(ModModelLayers.PAPER_POLICE, PaperPoliceModel::getTexturedModelData);
+        EntityModelLayerRegistry.registerModelLayer(ModModelLayers.NEIGHBOR, NeighborModel::getTexturedModelData);
 
         ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
             @Override
@@ -546,6 +552,13 @@ public class SPBRevampedClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register((client) ->{
+            if (client.world != null) {
+                TickScheduler.CLIENT.tick();
+                Level94Ambience.tick(client);
+            } else {
+                TickScheduler.CLIENT.clear();
+            }
+
             if (cutsceneManager.isPlaying) {
                 if (!ClientManager.getPlayerStateManager().isMuted()) {
                     shouldBeUnmuted = true;
@@ -584,8 +597,8 @@ public class SPBRevampedClient implements ClientModInitializer {
                     }
 
                     getCurrentBackroomsLevel().ifPresent((backroomsLevel -> {
-                        if ((backroomsLevel instanceof InfiniteGrassBackroomsLevel
-                                || backroomsLevel instanceof Level94BackroomsLevel) && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
+                        // No birds in Level 94: nothing there moves.
+                        if (backroomsLevel instanceof InfiniteGrassBackroomsLevel && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
                             FlockManager.tick();
                         }
                     }));

@@ -10,9 +10,7 @@ import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.sound.SoundCategory;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import com.sp.util.TickScheduler;
 
 public class LevelTransitionLightsOut {
 
@@ -22,18 +20,17 @@ public class LevelTransitionLightsOut {
         client.execute(()->{
             if(client.player != null) {
                 PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
-                ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
                 //Turn off the lights
                 playerComponent.player.playSound(ModSounds.LIGHTS_OUT, SoundCategory.AMBIENT, 1, 1);
                 SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(time, false, false);
 
                 //PlaySound after black screen is over
-                executorService.schedule(() -> {
-                    playerComponent.player.playSound(ModSounds.LIGHTS_ON, SoundCategory.AMBIENT, 1, 1);
+                TickScheduler.CLIENT.schedule(time, () -> {
+                    if (client.player == null) return;
+                    client.player.playSound(ModSounds.LIGHTS_ON, SoundCategory.AMBIENT, 1, 1);
                     SPBRevampedClient.sendComponentSyncPacket(false, "teleporting");
-                    executorService.shutdown();
-                }, (time * 100L)/2, TimeUnit.MILLISECONDS);
+                });
             }
         });
     }

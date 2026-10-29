@@ -148,7 +148,7 @@ dependencies {
 task runIntegrityCheck(type: JavaExec) {
 	dependsOn compileTestJava
 	classpath = sourceSets.test.runtimeClasspath
-	mainClass = 'com.sp.IntegrityTest'
+	mainClass = 'com.sp.ModTestRunner'
 }
 
 test {

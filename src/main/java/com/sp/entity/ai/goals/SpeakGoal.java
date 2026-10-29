@@ -1,37 +1,44 @@
 package com.sp.entity.ai.goals;
 
 import com.sp.cca_stuff.InitializeComponents;
-import com.sp.cca_stuff.PlayerComponent;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.voice.*;
 import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
-import com.javachatai.core.ChatAgent;
+import com.sp.sounds.voicechat.BackroomsVoicechatPlugin.HeardInput;
 import com.voicejavaai.core.RoboticVoice;
 import com.voicejavaai.voice.VoiceConfig;
-import net.minecraft.entity.player.PlayerEntity;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
 import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
 import de.maxhenkel.voicechat.plugins.impl.ServerLevelImpl;
 import net.minecraft.entity.ai.goal.Goal;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.random.Random;
+import net.minecraft.world.World;
 
+import java.text.Normalizer;
+import java.util.Optional;
 import java.util.UUID;
 
 public class SpeakGoal extends Goal {
+    /** How far away (in blocks) the SkinWalker can hear players talking or chatting. */
+    private static final double HEARING_RANGE = 48.0;
+    /** Simple Voice Chat plays 48 kHz mono audio. */
+    private static final int VOICECHAT_SAMPLE_RATE = 48000;
+
     private final Random random = Random.create();
     private final SkinWalkerEntity entity;
     private final SkinWalkerComponent component;
     private final RoboticVoice roboticVoice;
     private final VoiceConfig voiceConfig;
-    private final ChatAgent chatAgent;
     private int actCooldown;
-    private int responseCheckCooldown = 0;
+    private int inputCheckCooldown = 0;
     public ServerLevelImpl serverLevel = null;
     public LocationalAudioChannel audioChannel;
+    private RegistryKey<World> audioChannelWorld;
     public AudioPlayer audioPlayer;
-    private boolean learningTriggered = false;
 
     public SpeakGoal(SkinWalkerEntity entity) {
         this.entity = entity;
@@ -39,7 +46,6 @@ public class SpeakGoal extends Goal {
         this.roboticVoice = RoboticVoice.getInstance();
         this.voiceConfig = VoiceConfig.robotic();
         this.voiceConfig.setBasePitch(100 + Math.random() * 40);
-        this.chatAgent = ChatAgent.getInstance();
     }
 
     @Override
@@ -50,7 +56,7 @@ public class SpeakGoal extends Goal {
     @Override
     public void start() {
         this.actCooldown = getTickCount(40);
-        this.responseCheckCooldown = 0;
+        this.inputCheckCooldown = 0;
     }
 
     @Override
@@ -78,16 +84,21 @@ public class SpeakGoal extends Goal {
                 return;
             }
 
-            if (responseCheckCooldown > 0) {
-                responseCheckCooldown--;
+            // Answering what players say does not wait for the idle chatter cooldown.
+            if (this.inputCheckCooldown > 0) {
+                this.inputCheckCooldown--;
+            } else if (!responseQueue.hasPending()) {
+                this.inputCheckCooldown = 10;
+                if (checkForPlayerInput()) {
+                    this.setRandomActCoolDown();
+                    return;
+                }
             }
 
             if (this.actCooldown > 0) {
                 this.actCooldown--;
                 return;
             }
-
-            checkForPlayerInput();
 
             if (responseQueue.hasPending()) {
                 return;
@@ -98,90 +109,96 @@ public class SpeakGoal extends Goal {
         }
     }
 
-    private void checkForPlayerInput() {
-        if (!BackroomsVoicechatPlugin.lastTranscribedInputs.isEmpty()) {
-            String input = BackroomsVoicechatPlugin.lastTranscribedInputs.remove(0);
-            if (input == null || input.trim().isEmpty()) return;
+    /**
+     * Takes the oldest thing a nearby player said or wrote and queues a spoken answer.
+     *
+     * @return true if an answer was queued.
+     */
+    private boolean checkForPlayerInput() {
+        RegistryKey<World> world = this.entity.getWorld().getRegistryKey();
+        double rangeSquared = HEARING_RANGE * HEARING_RANGE;
 
-            component.setLastHeardInput(input);
+        Optional<HeardInput> heard = BackroomsVoicechatPlugin.claimInput(input ->
+                input.world().equals(world) && input.pos().squaredDistanceTo(this.entity.getPos()) <= rangeSquared);
 
-            String responseText;
-            String lang = detectLanguageFromInput(input);
-
-            if (input.startsWith("voice_")) {
-                String playerName = input.substring(6);
-                responseText = generateVoiceResponse(playerName, lang);
-            } else {
-                String inputText = input.contains(":") ? input.substring(input.indexOf(":") + 1).trim() : input;
-                chatAgent.setLanguage(lang);
-                responseText = chatAgent.respond(entity.getUuid(), inputText);
-            }
-
-            if (responseText == null || responseText.isEmpty()) {
-                responseText = lang.equals("es") ? "hmm" : "hmm";
-            }
-
-            String latencyInput = input.startsWith("voice_") ? "voice" : input;
-            int baseLatency = new LatencyCalculator().calculateLatency(
-                latencyInput,
-                component.isInTrueForm(),
-                0
-            );
-
-            int latency = Math.max(100, Math.min(8000, baseLatency));
-
-            short[] responseAudio = roboticVoice.speak(responseText, voiceConfig);
-
-            if (responseAudio != null && responseAudio.length > 0) {
-                int delayTicks = latency / 50;
-                component.getResponseQueue().enqueue(responseAudio, delayTicks);
-            }
+        if (heard.isEmpty()) {
+            return false;
         }
+
+        HeardInput input = heard.get();
+        String responseInput = input.asResponseInput();
+        component.setLastHeardInput(responseInput);
+
+        // Speech-to-text output is always in the model's language; plain "someone talked" falls back to it too.
+        String languageHint = input.language() != null ? input.language()
+                : input.isVoiceOnly() ? VoiceTranscriber.modelLanguage() : null;
+
+        ResponseGenerator.ResponseResult result = component.getResponseGenerator().generateResponse(responseInput, this.entity, languageHint);
+        if (result == null) {
+            return false;
+        }
+
+        String responseText = result.text;
+        if (input.isVoiceOnly() && component.isInTrueForm()) {
+            responseText = getTrueFormVoiceResponse(Math.random(), result.language);
+        }
+
+        String latencyInput = input.isVoiceOnly() ? "voice" : input.text();
+        int baseLatency = new LatencyCalculator().calculateLatency(latencyInput, component.isInTrueForm(), 0);
+        int latency = Math.max(100, Math.min(8000, baseLatency + result.latencyModifier));
+
+        short[] responseAudio = synthesize(responseText);
+        if (responseAudio.length == 0) {
+            return false;
+        }
+
+        component.getResponseQueue().enqueue(responseAudio, latency / 50);
+        return true;
     }
 
-    private String detectLanguageFromInput(String input) {
-        if (input.startsWith("voice_")) {
-            UUID targetUUID = component.getTargetPlayerUUID();
-            if (targetUUID != null) {
-                PlayerEntity target = entity.getWorld().getPlayerByUuid(targetUUID);
-                if (target != null) {
-                    PlayerComponent playerComp = InitializeComponents.PLAYER.get(target);
-                    String setting = playerComp.getSkinWalkerLang();
-                    if (setting != null && !setting.equals("auto")) {
-                        return setting;
-                    }
-                }
-            }
-            return "es";
+    /**
+     * Speaks the text with the robotic voice and converts it to the format Simple Voice Chat plays.
+     */
+    private short[] synthesize(String text) {
+        short[] audio = this.roboticVoice.speak(toSpeakableText(text), this.voiceConfig);
+        if (audio == null || audio.length == 0) {
+            return new short[0];
         }
-
-        String text = input.contains(":") ? input.substring(input.indexOf(":") + 1).trim() : input;
-        String lower = text.toLowerCase();
-
-        if (lower.matches(".*\\b(hola|que|como|donde|quien|por que|si|no|buenas|gracias)\\b.*")) return "es";
-        if (lower.matches(".*\\b(hello|hey|what|how|where|who|why|yes|no|please|thanks)\\b.*")) return "en";
-        if (lower.matches(".*\\b(hallo|wie|wo|wer|was|warum|ja|nein|danke|bitte)\\b.*")) return "de";
-        if (lower.matches(".*\\b(bonjour|salut|comment|pourquoi|oui|merci|s'il|je|tu)\\b.*")) return "fr";
-        if (lower.matches(".*\\b(ciao|come|dove|chi|cosa|perché|si|no|grazie|per favore)\\b.*")) return "it";
-        if (lower.matches(".*\\b(ola|como|onde|quem|o que|por que|sim|nao|obrigado|por favor)\\b.*")) return "pt";
-
-        return "es";
+        // The synthesizer works at 22.05 kHz; played as 48 kHz it would sound twice as fast and high pitched.
+        return resample(audio, this.voiceConfig.getSampleRate(), VOICECHAT_SAMPLE_RATE);
     }
 
-    private String generateVoiceResponse(String playerName, String lang) {
-        double roll = Math.random();
-        boolean inTrueForm = component.isInTrueForm();
+    /**
+     * The phoneme mapper only knows the letters a-z and drops everything else, so "más" would become "ms".
+     * Accents are stripped instead and special letters spelled out.
+     */
+    private static String toSpeakableText(String text) {
+        String lower = text.toLowerCase()
+                .replace("ß", "ss")
+                .replace("œ", "oe")
+                .replace("æ", "ae");
+        return Normalizer.normalize(lower, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+    }
 
-        if (inTrueForm) {
-            return getTrueFormVoiceResponse(roll, lang);
+    private static short[] resample(short[] input, int fromRate, int toRate) {
+        if (fromRate == toRate || input.length == 0) {
+            return input;
         }
 
-        int recentCount = component.getResponseQueue().hasPending() ? 1 : 0;
-        if (recentCount > 0) {
-            return getBusyVoiceResponse(roll, lang);
+        int outputLength = (int) ((long) input.length * toRate / fromRate);
+        short[] output = new short[outputLength];
+        double step = (double) fromRate / toRate;
+
+        for (int i = 0; i < outputLength; i++) {
+            double position = i * step;
+            int index = (int) position;
+            double fraction = position - index;
+            short a = input[Math.min(index, input.length - 1)];
+            short b = input[Math.min(index + 1, input.length - 1)];
+            output[i] = (short) Math.round(a + (b - a) * fraction);
         }
 
-        return getNormalVoiceResponse(roll, lang);
+        return output;
     }
 
     private String getTrueFormVoiceResponse(double roll, String lang) {
@@ -210,7 +227,7 @@ public class SpeakGoal extends Goal {
                 if (roll < 0.15) return "je t'entends";
                 if (roll < 0.25) return "continue à parler";
                 if (roll < 0.35) return "je peux t'entendre";
-                if (roll < 0.45) return "ta voix me familiar";
+                if (roll < 0.45) return "ta voix m'est familière";
                 if (roll < 0.55) return "arrête pas de parler";
                 if (roll < 0.65) return "j'aime ta voix";
                 if (roll < 0.75) return "parle plus fort";
@@ -239,119 +256,13 @@ public class SpeakGoal extends Goal {
             default:
                 if (roll < 0.15) return "te escucho";
                 if (roll < 0.25) return "sigue hablando";
-                if (roll < 0.35) return "puedo oirte";
+                if (roll < 0.35) return "puedo oírte";
                 if (roll < 0.45) return "tu voz suena familiar";
                 if (roll < 0.55) return "no pares de hablar";
                 if (roll < 0.65) return "me gusta tu voz";
-                if (roll < 0.75) return "hables mas fuerte";
+                if (roll < 0.75) return "habla más fuerte";
                 if (roll < 0.85) return "no te escucho bien";
-                return "sigue ahi";
-        }
-    }
-
-    private String getBusyVoiceResponse(double roll, String lang) {
-        switch (lang) {
-            case "en":
-                if (roll < 0.3) return "what";
-                if (roll < 0.5) return "tell me";
-                if (roll < 0.7) return "yes";
-                return "whats up";
-            case "de":
-                if (roll < 0.3) return "was";
-                if (roll < 0.5) return "sag";
-                if (roll < 0.7) return "ja";
-                return "was gibt's";
-            case "fr":
-                if (roll < 0.3) return "quoi";
-                if (roll < 0.5) return "dis-moi";
-                if (roll < 0.7) return "oui";
-                return "ça va";
-            case "it":
-                if (roll < 0.3) return "cosa";
-                if (roll < 0.5) return "dimmi";
-                if (roll < 0.7) return "sì";
-                return "come va";
-            case "pt":
-                if (roll < 0.3) return "que";
-                if (roll < 0.5) return "fala";
-                if (roll < 0.7) return "sim";
-                return "e ai";
-            default:
-                if (roll < 0.3) return "que";
-                if (roll < 0.5) return "dime";
-                if (roll < 0.7) return "si";
-                return "que onda";
-        }
-    }
-
-    private String getNormalVoiceResponse(double roll, String lang) {
-        switch (lang) {
-            case "en":
-                if (roll < 0.1) return "hey";
-                if (roll < 0.2) return "whats up";
-                if (roll < 0.3) return "sup";
-                if (roll < 0.4) return "yo";
-                if (roll < 0.5) return "hi";
-                if (roll < 0.6) return "yeah";
-                if (roll < 0.7) return "what";
-                if (roll < 0.8) return "hello";
-                if (roll < 0.9) return "ok";
-                return "hey there";
-            case "de":
-                if (roll < 0.1) return "hallo";
-                if (roll < 0.2) return "was gibt's";
-                if (roll < 0.3) return "hey";
-                if (roll < 0.4) return "ja";
-                if (roll < 0.5) return "hi";
-                if (roll < 0.6) return "na";
-                if (roll < 0.7) return "was";
-                if (roll < 0.8) return "moin";
-                if (roll < 0.9) return "ok";
-                return "hey hey";
-            case "fr":
-                if (roll < 0.1) return "salut";
-                if (roll < 0.2) return "ça va";
-                if (roll < 0.3) return "hey";
-                if (roll < 0.4) return "oui";
-                if (roll < 0.5) return "coucou";
-                if (roll < 0.6) return "quoi";
-                if (roll < 0.7) return "bonjour";
-                if (roll < 0.8) return "yo";
-                if (roll < 0.9) return "ok";
-                return "salut salut";
-            case "it":
-                if (roll < 0.1) return "ciao";
-                if (roll < 0.2) return "come va";
-                if (roll < 0.3) return "hey";
-                if (roll < 0.4) return "sì";
-                if (roll < 0.5) return "salve";
-                if (roll < 0.6) return "cosa";
-                if (roll < 0.7) return "buongiorno";
-                if (roll < 0.8) return "yo";
-                if (roll < 0.9) return "ok";
-                return "ciao ciao";
-            case "pt":
-                if (roll < 0.1) return "oi";
-                if (roll < 0.2) return "e ai";
-                if (roll < 0.3) return "hey";
-                if (roll < 0.4) return "sim";
-                if (roll < 0.5) return "ola";
-                if (roll < 0.6) return "que";
-                if (roll < 0.7) return "bom dia";
-                if (roll < 0.8) return "yo";
-                if (roll < 0.9) return "ok";
-                return "oi oi";
-            default:
-                if (roll < 0.1) return "hey";
-                if (roll < 0.2) return "que onda";
-                if (roll < 0.3) return "que pasó";
-                if (roll < 0.4) return "dime";
-                if (roll < 0.5) return "que hay";
-                if (roll < 0.6) return "hola";
-                if (roll < 0.7) return "que quieres";
-                if (roll < 0.8) return "si";
-                if (roll < 0.9) return "que fue";
-                return "hey que onda";
+                return "quédate ahí";
         }
     }
 
@@ -365,27 +276,16 @@ public class SpeakGoal extends Goal {
     private void playRandomPlayerSounds() {
         if (this.entity.getServer() == null) return;
 
-        if (this.serverLevel == null) {
-            this.serverLevel = new ServerLevelImpl(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()));
-        }
-
-        if (!this.serverLevel.getServerLevel().equals(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()))) {
-            this.serverLevel = new ServerLevelImpl(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()));
-        }
-
         VoicechatServerApi api = BackroomsVoicechatPlugin.voicechatApi;
         if (api == null) return;
 
         UUID targetUUID = this.component.getTargetPlayerUUID();
         if (targetUUID == null) return;
-        if (BackroomsVoicechatPlugin.randomSpeakingList.isEmpty()) return;
-        if (!BackroomsVoicechatPlugin.randomSpeakingList.containsKey(targetUUID)) return;
-        if (BackroomsVoicechatPlugin.randomSpeakingList.get(targetUUID) == null) return;
-        if (BackroomsVoicechatPlugin.randomSpeakingList.get(targetUUID).isEmpty()) return;
 
-        short[] data = BackroomsVoicechatPlugin.randomSpeakingList.get(targetUUID)
-            .get(random.nextBetween(0, BackroomsVoicechatPlugin.randomSpeakingList.get(targetUUID).size() - 1));
+        var clips = BackroomsVoicechatPlugin.randomSpeakingList.get(targetUUID);
+        if (clips == null || clips.isEmpty()) return;
 
+        short[] data = clips.get(random.nextBetween(0, clips.size() - 1));
         playAudio(data);
     }
 
@@ -393,19 +293,26 @@ public class SpeakGoal extends Goal {
         if (data == null || data.length == 0) return;
 
         VoicechatServerApi api = BackroomsVoicechatPlugin.voicechatApi;
-        if (api == null) return;
+        if (api == null || this.entity.getServer() == null) return;
 
-        if (this.serverLevel == null) {
-            if (this.entity.getServer() == null) return;
-            this.serverLevel = new ServerLevelImpl(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()));
-        }
+        // (Re)create the channel when the SkinWalker is in a different world than the channel was made for.
+        RegistryKey<World> worldKey = this.entity.getWorld().getRegistryKey();
+        if (this.audioChannel == null || !worldKey.equals(this.audioChannelWorld)) {
+            ServerWorld world = this.entity.getServer().getWorld(worldKey);
+            if (world == null) return;
 
-        if (this.audioChannel == null) {
+            if (this.audioPlayer != null) {
+                this.audioPlayer.stopPlaying();
+                this.audioPlayer = null;
+            }
+
+            this.serverLevel = new ServerLevelImpl(world);
             this.audioChannel = api.createLocationalAudioChannel(
                 this.entity.getUuid(),
                 this.serverLevel,
                 api.createPosition(this.entity.getX(), this.entity.getY(), this.entity.getZ())
             );
+            this.audioChannelWorld = worldKey;
         }
 
         if (this.audioChannel == null) return;

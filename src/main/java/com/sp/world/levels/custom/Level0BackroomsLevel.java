@@ -100,15 +100,16 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
     public AbstractEvent getRandomEvent(World world) {
         AbstractEvent activeEvent = super.getRandomEvent(world);
 
-        if (activeEvent instanceof LightLevelBlackout) {
-            this.blackoutCount++;
-            if (this.blackoutCount > 2) {
-                int attempts = 0;
-                while (activeEvent instanceof LightLevelBlackout && attempts++ < 10) {
-                    activeEvent = super.getRandomEvent(world);
-                }
+        // Avoid more than 2 blackouts in a row, without disabling blackouts for the rest of the world's life.
+        if (activeEvent instanceof LightLevelBlackout && this.blackoutCount >= 2) {
+            int attempts = 0;
+            while (activeEvent instanceof LightLevelBlackout && attempts++ < 10) {
+                activeEvent = super.getRandomEvent(world);
             }
         }
+
+        this.blackoutCount = activeEvent instanceof LightLevelBlackout ? this.blackoutCount + 1 : 0;
+        this.justChanged();
 
         return activeEvent;
     }

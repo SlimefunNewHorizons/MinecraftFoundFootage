@@ -155,7 +155,20 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.saveInventory(offHand, this.playerSavedOffhandInventory);
     }
 
+    public boolean hasSavedInventory() {
+        return !this.playerSavedMainInventory.isEmpty() || !this.playerSavedArmorInventory.isEmpty() || !this.playerSavedOffhandInventory.isEmpty();
+    }
+
+    /**
+     * Gives the player back the inventory saved by {@link #savePlayerInventory()}.
+     * Does nothing if there is nothing saved, so calling it twice (e.g. from a transition callback and from
+     * {@code transitionIn}) can no longer wipe the restored items.
+     */
     public void loadPlayerSavedInventory() {
+        if (!this.hasSavedInventory()) {
+            return;
+        }
+
         PlayerInventory inventory = this.player.getInventory();
         inventory.clear();
         DefaultedList<ItemStack> mainInventory = inventory.main;
@@ -167,9 +180,12 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.loadInventory(offHand, this.playerSavedOffhandInventory);
 
         this.playerSavedMainInventory.clear();
+        this.playerSavedArmorInventory.clear();
+        this.playerSavedOffhandInventory.clear();
     }
 
     private void saveInventory(DefaultedList<ItemStack> inventory1, Inventory inventory2){
+        inventory2.clear();
         for (int i = 0; i < inventory1.size(); i++) {
             ItemStack itemStack = inventory1.get(i);
             if (!itemStack.isEmpty()) {
@@ -487,10 +503,12 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         if (backroomsLevel.isPresent()) {
             BackroomsLevel level = backroomsLevel.get();
 
-            List<BackroomsLevel.LevelTransition> teleports = level.checkForTransition(this, this.player.getWorld());
+            if (currentTransition == null) {
+                List<BackroomsLevel.LevelTransition> teleports = level.checkForTransition(this, this.player.getWorld());
 
-            if (!teleports.isEmpty() && currentTransition == null) {
-                currentTransition = teleports.get(0);
+                if (!teleports.isEmpty()) {
+                    currentTransition = teleports.get(0);
+                }
             }
 
             if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.getWorld().getBlockState(this.player.getBlockPos().offset(Direction.DOWN, 3)).isOf(Blocks.RED_WOOL)) {
@@ -510,7 +528,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                             SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
                         }
                     },
-                    new BackroomsLevel.CrossDimensionTeleport(this, fallback.getSpawnPos(), level, fallback),
+                    new BackroomsLevel.CrossDimensionTeleport(this, fallback.getSafeSpawnPos(), level, fallback),
                     (teleport, tick) -> {});
             }
 
@@ -543,7 +561,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                     }
                 }
 
-                currentTransition.teleport().to().transitionOut(currentTransition.teleport());
+                currentTransition.teleport().from().transitionOut(currentTransition.teleport());
                 FabricDimensions.teleport(currentTransition.teleport().playerComponent().player, destination, target);
                 currentTransition.teleport().to().transitionIn(currentTransition.teleport());
 

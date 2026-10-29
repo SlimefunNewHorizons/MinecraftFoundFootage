@@ -2,6 +2,7 @@ package com.sp.world.events.level94;
 
 import com.sp.entity.custom.PaperPoliceEntity;
 import com.sp.init.BackroomsLevels;
+import com.sp.world.generation.chunk_generator.Level94Layout;
 import com.sp.init.ModEntities;
 import com.sp.world.events.AbstractEvent;
 import net.minecraft.entity.player.PlayerEntity;
@@ -35,12 +36,6 @@ public class PaperPoliceEvent extends AbstractEvent {
             return;
         }
 
-        // The Animations only come out at night.
-        long timeOfDay = world.getTimeOfDay() % 24000;
-        if (timeOfDay < 13000 || timeOfDay > 23000) {
-            return;
-        }
-
         this.spawnDelay--;
 
         if (this.spawnDelay > 0) {
@@ -53,7 +48,8 @@ public class PaperPoliceEvent extends AbstractEvent {
         List<? extends PlayerEntity> playerList = world.getPlayers();
 
         for (PlayerEntity player : playerList) {
-            if (world.random.nextInt(10) != 0) {
+            // The paper cutouts only live on the Stage, where everything else is a cutout too.
+            if (Level94Layout.zone(player.getBlockX()) < 4 || world.random.nextInt(10) != 0) {
                 continue;
             }
 

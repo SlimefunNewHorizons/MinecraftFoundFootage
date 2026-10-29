@@ -9,7 +9,9 @@ import com.sp.command.LevelCommand;
 import com.sp.command.SkinwalkerCommand;
 import com.sp.command.VoiceChatTestCommand;
 import com.sp.compat.modmenu.ConfigStuff;
+import com.sp.entity.custom.NeighborEntity;
 import com.sp.entity.custom.PaperPoliceEntity;
+import com.sp.world.level94.Level94Director;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.custom.SmilerEntity;
 import com.sp.entity.ik.model.GeckoLib.MowzieModelFactory;
@@ -23,6 +25,11 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
+import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
+import com.sp.util.TickScheduler;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -43,9 +50,6 @@ import software.bernie.geckolib.GeckoLib;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class SPBRevamped implements ModInitializer {
 	public static final String MOD_ID = "spb-revamped";
@@ -90,6 +94,7 @@ public class SPBRevamped implements ModInitializer {
 		FabricDefaultAttributeRegistry.register(ModEntities.SKIN_WALKER_ENTITY, SkinWalkerEntity.createSkinWalkerAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.SMILER_ENTITY, SmilerEntity.createSmilerAttributes());
 		FabricDefaultAttributeRegistry.register(ModEntities.PAPER_POLICE_ENTITY, PaperPoliceEntity.createPaperPoliceAttributes());
+		FabricDefaultAttributeRegistry.register(ModEntities.NEIGHBOR_ENTITY, NeighborEntity.createNeighborAttributes());
 
 		LOGGER.info("\"WOOOOOOOOOOOOOOOOOOOOOOOooooooooooooooooooooooooo..........\" -He said as he fell into the backrooms, never to be seen again.");
 
@@ -103,36 +108,42 @@ public class SPBRevamped implements ModInitializer {
 				return;
 			}
 
-			boolean backupInvulnerable;
 			try {
-				ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 				PlayerComponent playerComponent = InitializeComponents.PLAYER.get(newPlayer);
 
 				sendBlackScreenPacket(newPlayer, 120, false, true);
-				backupInvulnerable = newPlayer.getAbilities().invulnerable;
+				boolean backupInvulnerable = newPlayer.getAbilities().invulnerable;
 				newPlayer.getAbilities().invulnerable = true;
 				playerComponent.setShouldRender(false);
 				playerComponent.sync();
 				newPlayer.networkHandler.sendPacket(new PlaySoundS2CPacket(RegistryEntry.of(ModSounds.NO_ESCAPE), SoundCategory.AMBIENT, newPlayer.getPos().getX(), newPlayer.getPos().getY(), newPlayer.getPos().getZ(), 100.0f, 1.0f, newPlayer.getRandom().nextLong()));
 
-				//After YOU CAN'T ESCAPE is over
-				executorService.schedule(() -> {
+				//After YOU CAN'T ESCAPE is over (6 s)
+				TickScheduler.SERVER.schedule(120, () -> {
+					if (newPlayer.isRemoved()) return;
 					playerComponent.setShouldRender(true);
 					playerComponent.setShouldDoStatic(true);
 					playerComponent.sync();
 					newPlayer.getAbilities().invulnerable = backupInvulnerable;
-					executorService.shutdown();
-				}, 6000, TimeUnit.MILLISECONDS);
+				});
 
-				executorService.schedule(() -> {
+				TickScheduler.SERVER.schedule(160, () -> {
+					if (newPlayer.isRemoved()) return;
 					playerComponent.setShouldDoStatic(false);
 					playerComponent.sync();
-					executorService.shutdown();
-				}, 8000, TimeUnit.MILLISECONDS);
+				});
 			} catch (Exception e) {
 				LOGGER.error("Error in AFTER_RESPAWN event: {}", String.valueOf(e));
 			}
 		}));
+
+		ServerTickEvents.END_SERVER_TICK.register(server -> TickScheduler.SERVER.tick());
+		ServerTickEvents.END_WORLD_TICK.register(Level94Director::tick);
+		ServerLifecycleEvents.SERVER_STOPPED.register(server -> TickScheduler.SERVER.clear());
+
+		// Chat messages are captured on the server so the SkinWalker can hear them on dedicated servers too.
+		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) ->
+				BackroomsVoicechatPlugin.receiveChatInput(sender, message.getSignedContent()));
 	}
 
 	public static void sendCameraShakePacket(ServerPlayerEntity player, double speed, double trauma){

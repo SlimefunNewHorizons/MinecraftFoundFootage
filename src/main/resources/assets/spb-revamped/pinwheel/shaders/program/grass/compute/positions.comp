@@ -34,6 +34,15 @@ uniform float maxDist;
 uniform float FrustumPlanes[24];
 uniform int isLevel94;
 
+// Level 94: height of the grass surface for every column around the camera (-1 = no grass there),
+// sampled from the world by GrassRenderer.
+layout (std430, binding = 2) buffer HeightBuffer {
+    int heights[];
+} heightBuffer;
+uniform int HeightOriginX;
+uniform int HeightOriginZ;
+uniform int HeightSize;
+
 shared int sharedGrassBladeCount;
 
 bool testSphere(float x, float y, float z, float r) {
@@ -68,10 +77,18 @@ void main() {
     #ifdef LEVEL324
     offset = vec3(x/density, (31+34), z/density);
     #endif
-        if (isLevel94 == 1) {
-        // Simple height function matching terrain generation for Level94
-        float terrainY = 31.0 + 10.0 * sin(0.1 * (x + z));
-        offset.y = terrainY;
+    bool hasGround = true;
+    if (isLevel94 == 1) {
+        // Grass only grows on grass blocks, at their real height.
+        int columnX = int(floor(player.x + offset.x)) - HeightOriginX;
+        int columnZ = int(floor(player.z + offset.z)) - HeightOriginZ;
+        if (columnX < 0 || columnZ < 0 || columnX >= HeightSize || columnZ >= HeightSize) {
+            hasGround = false;
+        } else {
+            int height = heightBuffer.heights[columnX + columnZ * HeightSize];
+            hasGround = height >= 0;
+            offset.y = float(height);
+        }
     }
     vec3 WorldPos = offset - cameraPos;
 
@@ -86,7 +103,7 @@ void main() {
     #endif
 
 
-    if (!isInRoad) {
+    if (!isInRoad && hasGround) {
         if (length(WorldPos.xz - cameraPos.xz) < 90){
             if (testSphere(WorldPos.x, WorldPos.y, WorldPos.z, 1.0)) {
                 uint compactIndex = atomicAdd(indirectBuffer.primCount, 1);

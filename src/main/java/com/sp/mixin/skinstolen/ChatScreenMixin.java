@@ -3,7 +3,6 @@ package com.sp.mixin.skinstolen;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.entity.client.SkinWalkerCapturedFlavorText;
-import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
@@ -24,10 +23,8 @@ public abstract class ChatScreenMixin extends Screen{
         PlayerComponent component = InitializeComponents.PLAYER.get(this.client.player);
 
         if(!component.hasBeenCaptured()){
+            // The SkinWalker hears chat on the server (ServerMessageEvents in SPBRevamped), so it also works on dedicated servers.
             instance.sendChatMessage(content);
-            if (this.client.player != null) {
-                BackroomsVoicechatPlugin.receiveChatInput(this.client.player.getName().getString(), content);
-            }
         } else {
             SkinWalkerCapturedFlavorText.triedToChat = true;
         }
@@ -39,9 +36,6 @@ public abstract class ChatScreenMixin extends Screen{
 
         if(!component2.hasBeenCaptured() || content.contains("release")){
             instance.sendChatCommand(content);
-            if (this.client.player != null) {
-                BackroomsVoicechatPlugin.receiveChatInput(this.client.player.getName().getString(), content);
-            }
         } else {
             SkinWalkerCapturedFlavorText.triedToChat = true;
         }

@@ -272,7 +272,7 @@ public class ClientWrapper {
                 }
 
                 if (playerComponent.getTeleportingTimer() == 0) {
-                    playerComponent.currentTransition.teleport().to().transitionOut(playerComponent.currentTransition.teleport());
+                    playerComponent.currentTransition.teleport().from().transitionOut(playerComponent.currentTransition.teleport());
                     playerComponent.currentTransition.teleport().to().transitionIn(playerComponent.currentTransition.teleport());
                     playerComponent.currentTransition = null;
                 }

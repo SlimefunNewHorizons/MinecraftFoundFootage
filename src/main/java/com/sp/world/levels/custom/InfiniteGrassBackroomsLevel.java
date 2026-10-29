@@ -1,5 +1,6 @@
 package com.sp.world.levels.custom;
 
+import com.sp.SPBRevamped;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.init.BackroomsLevels;
 import com.sp.world.events.infinite_grass.InfiniteGrassAmbience;
@@ -40,18 +41,50 @@ public class InfiniteGrassBackroomsLevel extends BackroomsLevel {
 
             return playerList;
         }, this.getLevelId() + "->" + BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL.getLevelId());
+
+        // Wandering far enough through the endless field slowly turns it into the hills of Level 94.
+        this.registerTransition((world, playerComponent, from) -> {
+            List<LevelTransition> playerList = new ArrayList<>();
+            double distance = SPBRevamped.getExitSpawnRadius(world) * 2.0;
+            Vec3d pos = playerComponent.player.getPos();
+
+            if (from instanceof InfiniteGrassBackroomsLevel && playerComponent.player.isOnGround()
+                    && pos.x * pos.x + pos.z * pos.z >= distance * distance) {
+                playerList.add(getLevel94Transition(playerComponent));
+            }
+
+            return playerList;
+        }, this.getLevelId() + "->" + BackroomsLevels.LEVEL94_BACKROOMS_LEVEL.getLevelId());
+    }
+
+    private LevelTransition getLevel94Transition(PlayerComponent playerComponent) {
+        return new LevelTransition(
+                40,
+                (teleport, tick) -> {
+                    if (tick == 20) {
+                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 40, true, false);
+                    }
+                },
+                new CrossDimensionTeleport(
+                        playerComponent,
+                        BackroomsLevels.LEVEL94_BACKROOMS_LEVEL.getSafeSpawnPos(),
+                        this,
+                        BackroomsLevels.LEVEL94_BACKROOMS_LEVEL),
+                (teleport, tick) -> {});
     }
 
     private LevelTransition getOverworldTransition(PlayerComponent playerComponent) {
         Optional<Vec3d> optional = Optional.empty();
         BlockPos blockPos1 = new BlockPos(0, 64, 0);
-        if (playerComponent.player instanceof ServerPlayerEntity) {
-            BlockPos blockPos = ((ServerPlayerEntity) playerComponent.player).getSpawnPointPosition();
-            float f = ((ServerPlayerEntity) playerComponent.player).getSpawnAngle();
-            boolean bl = ((ServerPlayerEntity) playerComponent.player).isSpawnForced();
+        if (playerComponent.player instanceof ServerPlayerEntity serverPlayer) {
+            BlockPos blockPos = serverPlayer.getSpawnPointPosition();
+            float f = serverPlayer.getSpawnAngle();
+            boolean bl = serverPlayer.isSpawnForced();
             ServerWorld serverWorld = playerComponent.player.getWorld().getServer().getWorld(World.OVERWORLD);
 
-            if (serverWorld != null && blockPos != null) {
+            // Only use the personal spawn point (bed) if it is in the overworld; a nether respawn anchor
+            // position means nothing in the overworld.
+            if (serverWorld != null && blockPos != null && serverPlayer.getSpawnPointDimension() == World.OVERWORLD) {
                 optional = PlayerEntity.findRespawnPosition(serverWorld, blockPos, f, bl, true);
             }
 

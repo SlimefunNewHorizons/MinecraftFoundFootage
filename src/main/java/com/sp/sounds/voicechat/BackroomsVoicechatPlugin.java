@@ -16,13 +16,16 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
+import net.minecraft.world.World;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.openal.EXTEfx;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 
 public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     public static VoicechatServerApi voicechatApi;
@@ -34,8 +37,28 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
 
     private static final int MIN_VOICE_SAMPLE_SAMPLES = 48000;
 
-    public static List<String> lastTranscribedInputs = new CopyOnWriteArrayList<>();
+    /**
+     * Something a player said (voice) or wrote (chat) that a SkinWalker may hear.
+     *
+     * @param text     what was said, or null if the SkinWalker only knows the player talked (no transcription).
+     * @param language language of the text if known for sure (speech-to-text model language), otherwise null.
+     */
+    public record HeardInput(UUID playerUuid, String playerName, RegistryKey<World> world, Vec3d pos, String text, String language, long timeMs) {
+        public boolean isVoiceOnly() {
+            return text == null;
+        }
+
+        /**
+         * The input in the format the {@link com.sp.entity.voice.ResponseGenerator} expects.
+         */
+        public String asResponseInput() {
+            return isVoiceOnly() ? "voice_" + playerName.toLowerCase(Locale.ROOT) : text;
+        }
+    }
+
+    private static final List<HeardInput> heardInputs = new ArrayList<>();
     private static final int MAX_INPUTS = 20;
+    private static final long INPUT_LIFETIME_MS = 20_000;
 
     @Override
     public String getPluginId() {
@@ -49,7 +72,7 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         randomSpeakingList = new ConcurrentHashMap<>();
         totalSoundData = new ConcurrentHashMap<>();
         wasSpeaking = new ConcurrentHashMap<>();
-        lastTranscribedInputs = new CopyOnWriteArrayList<>();
+        clearInputs();
     }
 
     @Override
@@ -249,26 +272,64 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         totalSoundData.remove(player.getUuid());
     }
 
+    /**
+     * The player talked, but there is no transcription of what they said.
+     */
     public static void pushVoiceInput(PlayerEntity player) {
-        if (player == null) return;
-        if (lastTranscribedInputs.size() >= MAX_INPUTS) {
-            lastTranscribedInputs.remove(0);
-        }
-        String input = "voice_" + player.getName().getString().toLowerCase();
-        lastTranscribedInputs.add(input);
+        pushInput(player, null, null);
     }
 
     private static void detectVoiceInput(PlayerEntity player) {
         pushVoiceInput(player);
     }
 
-    public static void receiveChatInput(String playerName, String message) {
+    /**
+     * The player said (transcribed voice) or wrote (chat) the given text.
+     *
+     * @param language the language of the text if known for sure, null to detect it from the text.
+     */
+    public static void receiveChatInput(PlayerEntity player, String message, String language) {
         if (message == null || message.trim().isEmpty()) return;
-        if (lastTranscribedInputs.size() >= MAX_INPUTS) {
-            lastTranscribedInputs.remove(0);
+        pushInput(player, message.toLowerCase(Locale.ROOT).trim(), language);
+    }
+
+    public static void receiveChatInput(PlayerEntity player, String message) {
+        receiveChatInput(player, message, null);
+    }
+
+    private static synchronized void pushInput(PlayerEntity player, String text, String language) {
+        if (player == null) return;
+        // The player's position is read off the game thread, a slightly stale value is fine here.
+        HeardInput input = new HeardInput(player.getUuid(), player.getName().getString(), player.getWorld().getRegistryKey(),
+                player.getPos(), text, language, System.currentTimeMillis());
+
+        if (heardInputs.size() >= MAX_INPUTS) {
+            heardInputs.remove(0);
         }
-        String input = playerName.toLowerCase() + ": " + message.toLowerCase().trim();
-        lastTranscribedInputs.add(input);
+        heardInputs.add(input);
+    }
+
+    /**
+     * Takes the oldest input that matches the filter out of the queue, so only one SkinWalker answers it.
+     * Inputs older than {@link #INPUT_LIFETIME_MS} are thrown away.
+     */
+    public static synchronized Optional<HeardInput> claimInput(Predicate<HeardInput> filter) {
+        long now = System.currentTimeMillis();
+        heardInputs.removeIf(input -> now - input.timeMs() > INPUT_LIFETIME_MS);
+
+        Iterator<HeardInput> iterator = heardInputs.iterator();
+        while (iterator.hasNext()) {
+            HeardInput input = iterator.next();
+            if (filter.test(input)) {
+                iterator.remove();
+                return Optional.of(input);
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static synchronized void clearInputs() {
+        heardInputs.clear();
     }
 
     private void onServerStart(VoicechatServerStartedEvent voicechatServerStartedEvent) {

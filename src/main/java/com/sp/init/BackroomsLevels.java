@@ -66,16 +66,19 @@ public class BackroomsLevels {
         POOLROOMS_BACKROOMS_LEVEL.registerConnection(INFINITE_FIELD_BACKROOMS_LEVEL, BackroomsLevel.RouteType.MAIN);
         INFINITE_FIELD_BACKROOMS_LEVEL.registerConnection(OVERWORLD_REPRESENTING_BACKROOMS_LEVEL, BackroomsLevel.RouteType.MAIN);
 
+        // Optional branches into the secondary levels.
+        LEVEL1_BACKROOMS_LEVEL.registerConnection(LEVEL324_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
+        INFINITE_FIELD_BACKROOMS_LEVEL.registerConnection(LEVEL94_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
+
         LEVEL324_BACKROOMS_LEVEL.registerConnection(POOLROOMS_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
         LEVEL324_BACKROOMS_LEVEL.registerConnection(INFINITE_FIELD_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
 
-        // Level 94 - "Motion": the 3 special STOP signs and the castle trial are its only escapes.
-        LEVEL94_BACKROOMS_LEVEL.registerConnection(LEVEL0_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
+        // Level 94 - "Motion": the 3 special STOP signs are its (temporary) exits.
         LEVEL94_BACKROOMS_LEVEL.registerConnection(LEVEL1_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
-        LEVEL94_BACKROOMS_LEVEL.registerConnection(LEVEL2_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
         LEVEL94_BACKROOMS_LEVEL.registerConnection(POOLROOMS_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
         LEVEL94_BACKROOMS_LEVEL.registerConnection(LEVEL324_BACKROOMS_LEVEL, BackroomsLevel.RouteType.SECONDARY);
 
+        LEVEL0_BACKROOMS_LEVEL.setFallbackLevel(LEVEL0_BACKROOMS_LEVEL);
         LEVEL1_BACKROOMS_LEVEL.setFallbackLevel(LEVEL0_BACKROOMS_LEVEL);
         LEVEL2_BACKROOMS_LEVEL.setFallbackLevel(LEVEL1_BACKROOMS_LEVEL);
         POOLROOMS_BACKROOMS_LEVEL.setFallbackLevel(LEVEL2_BACKROOMS_LEVEL);
@@ -124,8 +127,10 @@ public class BackroomsLevels {
 
     public static Optional<BackroomsLevel> getById(String levelId) {
         for (BackroomsLevel backroomsLevel : BACKROOMS_LEVELS) {
+            // Accept the level id ("inf_grass"), the dimension name ("infinite_field") and a bare number ("94").
             if (backroomsLevel.getLevelId().equalsIgnoreCase(levelId)
-                    || ("94".equalsIgnoreCase(levelId) && "level94".equalsIgnoreCase(backroomsLevel.getLevelId()))) {
+                    || backroomsLevel.getWorldKey().getValue().getPath().equalsIgnoreCase(levelId)
+                    || ("level" + levelId).equalsIgnoreCase(backroomsLevel.getLevelId())) {
                 return Optional.of(backroomsLevel);
             }
         }

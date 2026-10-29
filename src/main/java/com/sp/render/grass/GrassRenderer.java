@@ -17,11 +17,18 @@ import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormatElement;
+import net.minecraft.block.Blocks;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.Heightmap;
+import org.lwjgl.BufferUtils;
 import org.joml.Vector4fc;
 import org.lwjgl.opengl.GL43;
 
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 
 import static net.minecraft.client.render.VertexFormats.NORMAL_ELEMENT;
 import static net.minecraft.client.render.VertexFormats.POSITION_ELEMENT;
@@ -41,6 +48,13 @@ public class GrassRenderer {
     private static final Identifier computeShaderPath = new Identifier(SPBRevamped.MOD_ID, "grass/compute/positions");
     private final int positionsVbo;
     private final int indirectVbo;
+
+    //*Level 94: grass surface height of every column around the camera (-1 where there is no grass block)
+    private static final int HEIGHT_RADIUS = 96;
+    private final int heightsVbo;
+    private IntBuffer heights;
+    private BlockPos heightsCenter;
+    private int heightsAge;
 
     private int lastGrassCount;
     private int lastMeshResolution;
@@ -82,6 +96,7 @@ public class GrassRenderer {
         //*Initialize Grass Positions buffer and Indirect buffer struct
         this.positionsVbo = glGenBuffers();
         this.indirectVbo = glGenBuffers();
+        this.heightsVbo = glGenBuffers();
         this.updateBuffers(true);
     }
 
@@ -224,7 +239,16 @@ public class GrassRenderer {
 
             float maxDist = numOfInst / (ConfigStuff.grassQuality.getDensity() * 1.85f);
             shader.setFloat("maxDist", maxDist);
-            shader.setInt("isLevel94", SPBRevampedClient.isInLevel(BackroomsLevels.LEVEL94_BACKROOMS_LEVEL) ? 1 : 0);
+            boolean level94 = SPBRevampedClient.isInLevel(BackroomsLevels.LEVEL94_BACKROOMS_LEVEL);
+            shader.setInt("isLevel94", level94 ? 1 : 0);
+            if (level94) {
+                //*Level 94 has hills, houses and roads: the grass needs the real height of every grass block
+                this.updateHeights();
+                glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, this.heightsVbo);
+                shader.setInt("HeightOriginX", this.heightsCenter.getX() - HEIGHT_RADIUS);
+                shader.setInt("HeightOriginZ", this.heightsCenter.getZ() - HEIGHT_RADIUS);
+                shader.setInt("HeightSize", 2 * HEIGHT_RADIUS + 1);
+            }
 
             Vector4fc[] planes = VeilRenderer.getCullingFrustum().getPlanes();
             float[] values = new float[4 * planes.length];
@@ -251,11 +275,56 @@ public class GrassRenderer {
             ShaderProgram.unbind();
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);
+            glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
         }
 
         ShaderProgram.unbind();
 
 
+    }
+
+    /**
+     * Samples the world around the camera: for every column, the height of the top of its highest block if that
+     * block is a grass block, otherwise -1 (roads, houses, trees...). Only done again after the camera moved a few
+     * blocks or once in a while, so blocks changing are picked up too.
+     */
+    private void updateHeights() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ClientWorld world = client.world;
+        if (world == null) return;
+
+        BlockPos center = client.gameRenderer.getCamera().getBlockPos();
+        if (this.heightsCenter != null && this.heights != null
+                && Math.abs(center.getX() - this.heightsCenter.getX()) < 4
+                && Math.abs(center.getZ() - this.heightsCenter.getZ()) < 4
+                && ++this.heightsAge < 60) {
+            return;
+        }
+        this.heightsAge = 0;
+        this.heightsCenter = center;
+
+        int size = 2 * HEIGHT_RADIUS + 1;
+        if (this.heights == null) {
+            this.heights = BufferUtils.createIntBuffer(size * size);
+        }
+
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        int originX = center.getX() - HEIGHT_RADIUS;
+        int originZ = center.getZ() - HEIGHT_RADIUS;
+        for (int dz = 0; dz < size; dz++) {
+            for (int dx = 0; dx < size; dx++) {
+                int x = originX + dx;
+                int z = originZ + dz;
+                int top = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+                boolean grass = world.getBlockState(mutable.set(x, top, z)).isOf(Blocks.GRASS_BLOCK);
+                this.heights.put(dx + dz * size, grass ? top + 1 : -1);
+            }
+        }
+
+        this.heights.rewind();
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, this.heightsVbo);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, this.heights, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
 
     private void createGrassModel(BufferBuilder bufferBuilder) {
@@ -279,6 +348,7 @@ public class GrassRenderer {
     public void close(){
         glDeleteBuffers(this.positionsVbo);
         glDeleteBuffers(this.indirectVbo);
+        glDeleteBuffers(this.heightsVbo);
         glUnmapBuffer(GL_DRAW_INDIRECT_BUFFER);
         if (this.vertexBuffer != null) {
             this.vertexBuffer.close();

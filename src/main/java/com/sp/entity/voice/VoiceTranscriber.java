@@ -15,9 +15,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -26,18 +26,26 @@ import java.util.zip.ZipInputStream;
 public class VoiceTranscriber {
     private static final String DEFAULT_MODEL_ID = "alphacephei/vosk-model-small-es-0.42";
     private static final int TARGET_SAMPLE_RATE = 16000;
-    private static final int MAX_CLIP_SAMPLES = TARGET_SAMPLE_RATE * 8;
+    private static final int MAX_CLIP_SECONDS = 8;
     private static final int MAX_PENDING = 4;
 
     private static final Pattern TEXT_PATTERN = Pattern.compile("\"text\"\\s*:\\s*\"([^\"]*)\"");
 
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread thread = new Thread(r, "SPB-STT");
-        thread.setDaemon(true);
-        return thread;
-    });
+    // Recreated on demand: the voice chat server stops (and shuts this down) every time a singleplayer world is closed.
+    private static ThreadPoolExecutor executor;
 
     private static volatile Model MODEL;
+
+    private static synchronized ThreadPoolExecutor getExecutor() {
+        if (executor == null || executor.isShutdown()) {
+            executor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), r -> {
+                Thread thread = new Thread(r, "SPB-STT");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+        return executor;
+    }
 
     public static void transcribeAsync(PlayerEntity player, short[] pcm, int sampleRate) {
         if (!ConfigStuff.sttEnabled) {
@@ -48,15 +56,26 @@ public class VoiceTranscriber {
             BackroomsVoicechatPlugin.pushVoiceInput(player);
             return;
         }
-        if (EXECUTOR instanceof ThreadPoolExecutor pool && pool.getQueue().size() >= MAX_PENDING) {
+
+        ThreadPoolExecutor pool = getExecutor();
+        if (pool.getQueue().size() >= MAX_PENDING) {
             BackroomsVoicechatPlugin.pushVoiceInput(player);
             return;
         }
 
-        short[] clip = new short[Math.min(pcm.length, MAX_CLIP_SAMPLES)];
+        // Limit by duration of the source audio (it is usually 48 kHz, not the 16 kHz Vosk works with).
+        short[] clip = new short[Math.min(pcm.length, sampleRate * MAX_CLIP_SECONDS)];
         System.arraycopy(pcm, 0, clip, 0, clip.length);
 
-        EXECUTOR.submit(() -> transcribeBlocking(player, clip, sampleRate));
+        pool.submit(() -> transcribeBlocking(player, clip, sampleRate));
+    }
+
+    /**
+     * Language of the configured speech-to-text model; transcriptions are always in this language.
+     */
+    public static String modelLanguage() {
+        String language = LanguageDetector.fromModelId(modelId());
+        return language != null ? language : "es";
     }
 
     private static void transcribeBlocking(PlayerEntity player, short[] clip, int sampleRate) {
@@ -90,10 +109,8 @@ public class VoiceTranscriber {
                 return;
             }
 
-            BackroomsVoicechatPlugin.receiveChatInput(
-                    player != null ? player.getName().getString() : "",
-                    text.trim().toLowerCase()
-            );
+            // Vosk models understand a single language, so that is the language of the text.
+            BackroomsVoicechatPlugin.receiveChatInput(player, text.trim(), modelLanguage());
         } catch (Exception e) {
             SPBRevamped.LOGGER.error("[SPB-STT] Transcription failed: {}", String.valueOf(e));
             BackroomsVoicechatPlugin.pushVoiceInput(player);
@@ -255,7 +272,12 @@ public class VoiceTranscriber {
     }
 
     public static void shutdown() {
-        EXECUTOR.shutdownNow();
+        synchronized (VoiceTranscriber.class) {
+            if (executor != null) {
+                executor.shutdownNow();
+                executor = null;
+            }
+        }
         synchronized (VoiceTranscriber.class) {
             if (MODEL != null) {
                 try {

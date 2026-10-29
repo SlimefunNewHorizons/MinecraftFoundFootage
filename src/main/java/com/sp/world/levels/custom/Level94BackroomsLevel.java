@@ -6,117 +6,97 @@ import com.sp.init.BackroomsLevels;
 import com.sp.world.events.infinite_grass.InfiniteGrassAmbience;
 import com.sp.world.events.level94.PaperPoliceEvent;
 import com.sp.world.generation.chunk_generator.Level94ChunkGenerator;
+import com.sp.world.generation.chunk_generator.Level94Layout;
 import com.sp.world.levels.BackroomsLevel;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.UUID;
 
 public class Level94BackroomsLevel extends BackroomsLevel {
 
-    private static final Vec3d STOP_LEVEL1_POS = new Vec3d(256, 32, 7);
-    private static final Vec3d STOP_POOLROOMS_POS = new Vec3d(512, 32, -7);
-    private static final Vec3d STOP_LEVEL324_POS = new Vec3d(1024, 32, 7);
-
     public Level94BackroomsLevel() {
-        super("level94", Level94ChunkGenerator.CODEC, new Vec3d(0, 31, 0), BackroomsLevels.LEVEL94_WORLD_KEY);
+        super("level94", Level94ChunkGenerator.CODEC, new Vec3d(0.5, Level94Layout.BASE_Y, 0.5), BackroomsLevels.LEVEL94_WORLD_KEY);
+    }
+
+    @Override
+    public void register() {
+        super.register();
 
         this.registerEvent("ambience", InfiniteGrassAmbience::new);
         this.registerEvent("paper", PaperPoliceEvent::new);
 
-        // Exit 1: reach the floating castle and pass the Animated King's trial -> random main level.
+        // The exits: the special STOP signs of the Stage zone. Stand still in front of one long enough and it
+        // lets you go; the Neighbor only comes closer while you are not looking.
+        BackroomsLevel[] destinations = {
+                BackroomsLevels.LEVEL1_BACKROOMS_LEVEL,
+                BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL,
+                BackroomsLevels.LEVEL324_BACKROOMS_LEVEL
+        };
+        for (int i = 0; i < Level94Layout.SPECIAL_STOP_X.length; i++) {
+            registerStopSignExit(i, destinations[i % destinations.length]);
+        }
+    }
+
+    /** How long (in ticks) the player has to stand still at an exit sign. */
+    public static final int EXIT_STILL_TICKS = 200;
+
+    private final Map<UUID, Integer> stillTicks = new HashMap<>();
+    private final Map<UUID, Vec3d> lastPositions = new HashMap<>();
+
+    private void registerStopSignExit(int signIndex, BackroomsLevel to) {
+        Vec3d signPos = Vec3d.ofBottomCenter(Level94Layout.getSpecialStopSign(signIndex));
+
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
+            if (!(from instanceof Level94BackroomsLevel) || !isAtStopSign(playerComponent, signPos)) {
+                return playerList;
+            }
 
-            if (from instanceof Level94BackroomsLevel
-                    && playerComponent.player.getPos().y > 115
-                    && playerComponent.player.getPos().squaredDistanceTo(new Vec3d(0, playerComponent.player.getPos().y, 0)) < 40 * 40) {
-                playerList.add(getCastleExit(playerComponent));
+            UUID uuid = playerComponent.player.getUuid();
+            Vec3d pos = playerComponent.player.getPos();
+            Vec3d last = this.lastPositions.put(uuid, pos);
+            boolean still = last != null && last.squaredDistanceTo(pos) < 0.0004;
+            int ticks = still ? this.stillTicks.getOrDefault(uuid, 0) + 1 : 0;
+            this.stillTicks.put(uuid, ticks);
+
+            if (ticks == 20 && playerComponent.player instanceof ServerPlayerEntity serverPlayer) {
+                serverPlayer.sendMessage(Text.translatable("spb-revamped.level94.exit.wait").formatted(Formatting.GRAY, Formatting.ITALIC), true);
+            }
+
+            if (ticks >= EXIT_STILL_TICKS) {
+                this.stillTicks.remove(uuid);
+                this.lastPositions.remove(uuid);
+                playerList.add(getStopSignTransition(playerComponent, to));
             }
 
             return playerList;
-        }, this.getLevelId() + " -> castle_exit");
+        }, this.getLevelId() + " -> exit " + signIndex);
+    }
 
-        // Exit 2a: the special STOP sign on the road -> Level 1.
-        this.registerTransition((world, playerComponent, from) -> {
-            List<LevelTransition> playerList = new ArrayList<>();
-
-            if (from instanceof Level94BackroomsLevel && isAtStopSign(playerComponent, STOP_LEVEL1_POS)) {
-                playerList.add(getStopSignTransition(playerComponent, BackroomsLevels.LEVEL1_BACKROOMS_LEVEL));
-            }
-
-            return playerList;
-        }, this.getLevelId() + " -> " + BackroomsLevels.LEVEL1_BACKROOMS_LEVEL.getLevelId());
-
-        // Exit 2b: the special STOP sign -> Poolrooms.
-        this.registerTransition((world, playerComponent, from) -> {
-            List<LevelTransition> playerList = new ArrayList<>();
-
-            if (from instanceof Level94BackroomsLevel && isAtStopSign(playerComponent, STOP_POOLROOMS_POS)) {
-                playerList.add(getStopSignTransition(playerComponent, BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL));
-            }
-
-            return playerList;
-        }, this.getLevelId() + " -> " + BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL.getLevelId());
-
-        // Exit 2c: the special STOP sign -> Level 324.
-        this.registerTransition((world, playerComponent, from) -> {
-            List<LevelTransition> playerList = new ArrayList<>();
-
-            if (from instanceof Level94BackroomsLevel && isAtStopSign(playerComponent, STOP_LEVEL324_POS)) {
-                playerList.add(getStopSignTransition(playerComponent, BackroomsLevels.LEVEL324_BACKROOMS_LEVEL));
-            }
-
-            return playerList;
-        }, this.getLevelId() + " -> " + BackroomsLevels.LEVEL324_BACKROOMS_LEVEL.getLevelId());
+    /**
+     * Ticks the player has been standing still at an exit sign (0 if not).
+     */
+    public int getStillTicks(UUID player) {
+        return this.stillTicks.getOrDefault(player, 0);
     }
 
     private static boolean isAtStopSign(PlayerComponent playerComponent, Vec3d signPos) {
         Vec3d playerPos = playerComponent.player.getPos();
-        if (playerPos.y < 30 || playerPos.y > 38) {
+        if (Math.abs(playerPos.y - signPos.y) > 4) {
             return false;
         }
 
-        return playerPos.squaredDistanceTo(signPos) < 2.5 * 2.5;
-    }
-
-    private LevelTransition getCastleExit(PlayerComponent playerComponent) {
-        BackroomsLevel[] mainLevels = new BackroomsLevel[]{
-                BackroomsLevels.LEVEL0_BACKROOMS_LEVEL,
-                BackroomsLevels.LEVEL1_BACKROOMS_LEVEL,
-                BackroomsLevels.LEVEL2_BACKROOMS_LEVEL
-        };
-        BackroomsLevel to = mainLevels[this.random.nextInt(mainLevels.length)];
-
-        return new LevelTransition(
-                20,
-                (teleport, tick) -> {
-                    if (tick == 9) {
-                        teleport.playerComponent().setShouldNoClip(true);
-                        teleport.playerComponent().sync();
-                    }
-
-                    if (tick == 14) {
-                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
-                    }
-
-                    if (tick == 1) {
-                        teleport.playerComponent().setShouldNoClip(false);
-                        teleport.playerComponent().sync();
-                    }
-                },
-                new CrossDimensionTeleport(playerComponent, to.getSafeSpawnPos(), this, to),
-                (teleport, tick) -> {
-                    teleport.playerComponent().setShouldNoClip(false);
-                    teleport.playerComponent().sync();
-                });
+        double dx = playerPos.x - signPos.x;
+        double dz = playerPos.z - signPos.z;
+        return dx * dx + dz * dz < 2.5 * 2.5;
     }
 
     private LevelTransition getStopSignTransition(PlayerComponent playerComponent, BackroomsLevel to) {

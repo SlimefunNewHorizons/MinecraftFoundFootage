@@ -11,6 +11,7 @@ uniform float grassHeight;
 //out vec4 fragColor;
 in vec3 localPos;
 in vec3 normal;
+in float bladeBase;
 
 
 float getGrassHeightGradient(float height){
@@ -20,12 +21,13 @@ float getGrassHeightGradient(float height){
 void main() {
 //    discard;
     vec3 worldPos = localPos + VeilCamera.CameraPosition;
-    float grassGradient = getGrassHeightGradient(worldPos.y - 31);
+    // Measured from the base of each blade, so grass on hills is colored like grass on flat ground
+    float grassGradient = getGrassHeightGradient(worldPos.y - bladeBase);
     vec3 grassColor = mix(vec3(0.0, 0.3, 0.0), vec3(0.6, 0.7, 0.0)*0.8, grassGradient);
 
 
     #ifdef LEVEL324
-        grassGradient = getGrassHeightGradient(worldPos.y - (31+34));
+        grassGradient = getGrassHeightGradient(worldPos.y - bladeBase);
         grassColor = mix(vec3(0.3, 0.2, 0.1), vec3(0.4, 0.2, 0.0)*0.8, grassGradient);
     #endif
     float occlusionFactor = clamp(grassGradient, 0.2, 1.0);

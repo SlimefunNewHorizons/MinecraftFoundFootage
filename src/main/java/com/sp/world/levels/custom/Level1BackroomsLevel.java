@@ -49,7 +49,7 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
             return playerList;
         }, this.getLevelId() + "->" + BackroomsLevels.LEVEL2_BACKROOMS_LEVEL.getLevelId());
 
-        /*
+        // The "stairwell324_1" room marks its exit with blue wool two blocks below the top landing.
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
             BlockState state = world.getBlockState(playerComponent.player.getBlockPos().subtract(new Vec3i(0, 2, 0)));
@@ -60,16 +60,11 @@ public class Level1BackroomsLevel extends BackroomsLevel implements BackroomsLev
                     playerComponent.player.isOnGround() &&
                     state.isOf(Blocks.BLUE_WOOL)
             ) {
-                for (PlayerEntity player : playerComponent.player.getWorld().getPlayers()) {
-                    PlayerComponent otherPlayerComponent = InitializeComponents.PLAYER.get(player);
-                    playerList.add(getLevel324Transition(otherPlayerComponent));
-                }
+                playerList.add(getLevel324Transition(playerComponent));
             }
 
             return playerList;
         }, this.getLevelId() + "->" + BackroomsLevels.LEVEL324_BACKROOMS_LEVEL.getLevelId());
-
-         */
     }
 
 
