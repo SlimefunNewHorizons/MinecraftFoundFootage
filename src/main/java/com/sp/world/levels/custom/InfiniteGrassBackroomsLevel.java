@@ -6,6 +6,7 @@ import com.sp.init.BackroomsLevels;
 import com.sp.world.events.infinite_grass.InfiniteGrassAmbience;
 import com.sp.world.generation.chunk_generator.InfGrassChunkGenerator;
 import com.sp.world.levels.BackroomsLevel;
+import com.sp.world.levels.custom.vanilla_representing.OverworldRepresentingBackroomsLevel;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -74,24 +75,6 @@ public class InfiniteGrassBackroomsLevel extends BackroomsLevel {
     }
 
     private LevelTransition getOverworldTransition(PlayerComponent playerComponent) {
-        Optional<Vec3d> optional = Optional.empty();
-        BlockPos blockPos1 = new BlockPos(0, 64, 0);
-        if (playerComponent.player instanceof ServerPlayerEntity serverPlayer) {
-            BlockPos blockPos = serverPlayer.getSpawnPointPosition();
-            float f = serverPlayer.getSpawnAngle();
-            boolean bl = serverPlayer.isSpawnForced();
-            ServerWorld serverWorld = playerComponent.player.getWorld().getServer().getWorld(World.OVERWORLD);
-
-            // Only use the personal spawn point (bed) if it is in the overworld; a nether respawn anchor
-            // position means nothing in the overworld.
-            if (serverWorld != null && blockPos != null && serverPlayer.getSpawnPointDimension() == World.OVERWORLD) {
-                optional = PlayerEntity.findRespawnPosition(serverWorld, blockPos, f, bl, true);
-            }
-
-            World overworld = playerComponent.player.getWorld().getServer().getWorld(World.OVERWORLD);
-            blockPos1 = overworld.getSpawnPos();
-        }
-
         return new LevelTransition(
                 1,
                 (teleport, tick) -> {
@@ -101,7 +84,7 @@ public class InfiniteGrassBackroomsLevel extends BackroomsLevel {
                 },
                 new CrossDimensionTeleport(
                         playerComponent,
-                        optional.orElse(blockPos1.toCenterPos()),
+                        OverworldRepresentingBackroomsLevel.returnPosition(playerComponent),
                         this,
                         BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL),
                 (teleport, tick) -> {});

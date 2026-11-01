@@ -47,7 +47,11 @@ public final class Level94Director {
                     "neighbor_waves", "wave_back", "why_no_wave"},
             {"stop", "dont_stop", "stop", "everyone_stops", "almost_home", "you_are_home", "stay"}
     };
-    private static final String[] NEIGHBOR_LINES = {"hello", "hello", "hello_hello", "waiting", "waiting_forever", "leaving", "nobody_leaves", "house_ready"};
+    private static final String[] NEIGHBOR_LINES = {"hello", "hello", "hello_hello", "waiting", "lawn", "waiting_forever", "windows",
+            "leaving", "dinner", "same_house", "nobody_leaves", "counted", "door_open", "smile", "house_ready"};
+    // In the Stage zone there is nothing left to be polite about
+    private static final String[] STAGE_LINES = {"nothing_behind", "everyone_stays", "who_were_you", "read_sign", "no_neighbors",
+            "dont_turn", "almost_home", "nobody_leaves"};
 
     private static final Map<UUID, State> STATES = new HashMap<>();
 
@@ -137,7 +141,8 @@ public final class Level94Director {
                 // Now and then he says something, always from somewhere you are not looking.
                 if (--state.neighborTalkCooldown <= 0 && neighbor.distanceTo(player) < 24
                         && !NeighborEntity.isSeenBy(player, neighbor.getPos().add(0, 1.6, 0))) {
-                    neighborSays(player, NEIGHBOR + NEIGHBOR_LINES[state.neighborLine++ % NEIGHBOR_LINES.length]);
+                    String[] lines = zone >= 4 ? STAGE_LINES : NEIGHBOR_LINES;
+                    neighborSays(player, NEIGHBOR + lines[state.neighborLine++ % lines.length]);
                     state.neighborTalkCooldown = 500 + player.getRandom().nextInt(400);
                 }
             }

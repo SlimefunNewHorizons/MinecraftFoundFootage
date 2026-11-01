@@ -40,7 +40,8 @@ public class PaperPoliceEntity extends MobEntity {
     public void tick() {
         super.tick();
 
-        if (this.getWorld().isClient()) {
+        //*NoAI (e.g. /preview): just stand there to be looked at
+        if (this.getWorld().isClient() || this.isAiDisabled()) {
             return;
         }
 

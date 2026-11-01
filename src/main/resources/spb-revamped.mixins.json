@@ -3,6 +3,7 @@
   "package": "com.sp.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "ClientLanguageMixin",
     "BodyControlMixin",
     "ChunkStatusMixin",
     "EntityMixin",
@@ -43,6 +44,7 @@
     "ItemEntityRendererMixin",
     "LivingEntityRendererMixin",
     "MinecraftClientMixin",
+    "MusicTrackerMixin",
     "PlayerEntityRendererMixin",
     "PlayerInventoryMixin",
     "RemoveBlockBreakParticlesMixin",

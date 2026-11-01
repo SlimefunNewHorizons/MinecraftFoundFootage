@@ -48,9 +48,11 @@ public final class Level94Layout {
     public static final int LATERAL_LIMIT = 1100;
     public static final int LATERAL_RETURN = 350;
 
-    // The exits: special STOP signs in the Stage zone, on both ends of the road. Index % 3 picks the destination.
+    // The exits: special STOP signs in the Stage zone, on both ends of the road. Each world moves them a little and
+    // may put them on the other side of the road (see specialStopX / specialStopSide).
     public static final int[] SPECIAL_STOP_X = {2200, 2500, 2800, -2200, -2500, -2800};
     public static final int[] SPECIAL_STOP_SIDE = {1, -1, 1, -1, 1, -1};
+    private static final int SPECIAL_STOP_SHIFT = 100;
 
     // Neighborhoods
     public static final int GRID = 36;                         // Distance between parallel streets
@@ -82,6 +84,41 @@ public final class Level94Layout {
     private static final long SALT_TOWER = 0x70E7L;
     private static final long SALT_TREE = 0x7EEL;
     private static final long SALT_LOOP = 0x100BL;
+    private static final long SALT_EXIT = 0xE817L;
+
+    // ------------------------------------------------------------------------------------------------
+    // World seed
+    // ------------------------------------------------------------------------------------------------
+
+    // Mixed into every hash, so each world gets its own neighborhoods, road and exit spots. 0 (seed 0, and the
+    // tests) is the original layout. Set on the server when it starts and on the client from the synced seed.
+    private static volatile long worldSalt;
+    private static volatile double roadPhaseA;
+    private static volatile double roadPhaseB;
+
+    /**
+     * Lays the level out for the world with this seed. Cheap when the seed did not change.
+     */
+    public static void useSeed(long seed) {
+        long salt = seed == 0 ? 0 : mix(seed) | 1;
+        if (salt == worldSalt) {
+            return;
+        }
+        roadPhaseA = salt == 0 ? 0 : (mix(salt ^ 0xA) >>> 11) * 0x1.0p-53 * 2 * Math.PI;
+        roadPhaseB = salt == 0 ? 0 : (mix(salt ^ 0xB) >>> 11) * 0x1.0p-53 * 2 * Math.PI;
+        worldSalt = salt;
+        RegionGrid.CACHE.clear();
+    }
+
+    /**
+     * splitmix64: independent of the current world salt, unlike hash().
+     */
+    private static long mix(long value) {
+        long z = value + 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
+    }
 
     private static final SimplexNoiseSampler NOISE = new SimplexNoiseSampler(Random.create(94L));
 
@@ -184,10 +221,13 @@ public final class Level94Layout {
     // ------------------------------------------------------------------------------------------------
 
     /**
-     * Z coordinate of the main road's center line at the given x. The road gently winds and passes through (0, 0).
+     * Z coordinate of the main road's center line at the given x. The road gently winds and passes through (0, 0);
+     * every world winds it differently.
      */
     public static double roadCenterZ(double x) {
-        return 22.0 * Math.sin(x / 190.0) + 8.0 * (Math.sin(x / 67.0 + 1.1) - Math.sin(1.1));
+        double a = roadPhaseA;
+        double b = roadPhaseB;
+        return 22.0 * (Math.sin(x / 190.0 + a) - Math.sin(a)) + 8.0 * (Math.sin(x / 67.0 + 1.1 + b) - Math.sin(1.1 + b));
     }
 
     /**
@@ -577,8 +617,25 @@ public final class Level94Layout {
      * Position of the pole base (first pole block) of one of the special STOP signs (the exits).
      */
     public static BlockPos getSpecialStopSign(int index) {
-        int x = SPECIAL_STOP_X[index];
-        return new BlockPos(x, BASE_Y + 1, stopSignZ(x, SPECIAL_STOP_SIDE[index]));
+        int x = specialStopX(index);
+        return new BlockPos(x, BASE_Y + 1, stopSignZ(x, specialStopSide(index)));
+    }
+
+    /**
+     * X of an exit in this world: its base spot moved up to {@link #SPECIAL_STOP_SHIFT} blocks, which keeps every exit
+     * in the Stage zone and the exits of each end of the road apart.
+     */
+    public static int specialStopX(int index) {
+        if (worldSalt == 0) return SPECIAL_STOP_X[index];
+        return SPECIAL_STOP_X[index] + (int) Math.round((rand01(hash(index, 0, SALT_EXIT), 0) * 2 - 1) * SPECIAL_STOP_SHIFT);
+    }
+
+    /**
+     * Side of the main road the exit stands on in this world (1 or -1).
+     */
+    public static int specialStopSide(int index) {
+        if (worldSalt == 0) return SPECIAL_STOP_SIDE[index];
+        return rand01(hash(index, 0, SALT_EXIT), 1) < 0.5 ? -1 : 1;
     }
 
     /**
@@ -589,8 +646,8 @@ public final class Level94Layout {
     }
 
     public static boolean isNearSpecialStopSign(int x, int margin) {
-        for (int specialX : SPECIAL_STOP_X) {
-            if (Math.abs(x - specialX) < margin) return true;
+        for (int i = 0; i < SPECIAL_STOP_X.length; i++) {
+            if (Math.abs(x - specialStopX(i)) < margin) return true;
         }
         return false;
     }
@@ -637,7 +694,7 @@ public final class Level94Layout {
         }
         for (int i = 0; i < SPECIAL_STOP_X.length; i++) {
             BlockPos pos = getSpecialStopSign(i);
-            inArea.accept(new StopSign(pos.getX(), pos.getZ(), pos.getY(), 3, SPECIAL_STOP_SIDE[i] > 0 ? Facing.EAST : Facing.WEST, i));
+            inArea.accept(new StopSign(pos.getX(), pos.getZ(), pos.getY(), 3, specialStopSide(i) > 0 ? Facing.EAST : Facing.WEST, i));
         }
 
         // Avenues meeting the main road: a sign on the right of the drivers coming out
@@ -1036,7 +1093,7 @@ public final class Level94Layout {
     }
 
     private static long hash(long a, long b, long salt) {
-        long h = salt * 0x9E3779B97F4A7C15L + a * 0xC2B2AE3D27D4EB4FL + b * 0x165667B19E3779F9L;
+        long h = (salt + worldSalt) * 0x9E3779B97F4A7C15L + a * 0xC2B2AE3D27D4EB4FL + b * 0x165667B19E3779F9L;
         h ^= (h >>> 33);
         h *= 0xFF51AFD7ED558CCDL;
         h ^= (h >>> 33);

@@ -52,10 +52,10 @@ public class Level94BackroomsLevel extends BackroomsLevel {
     private final Map<UUID, Vec3d> lastPositions = new HashMap<>();
 
     private void registerStopSignExit(int signIndex, BackroomsLevel to) {
-        Vec3d signPos = Vec3d.ofBottomCenter(Level94Layout.getSpecialStopSign(signIndex));
-
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
+            // Looked up every time: where the sign stands depends on the world's seed
+            Vec3d signPos = Vec3d.ofBottomCenter(Level94Layout.getSpecialStopSign(signIndex));
             if (!(from instanceof Level94BackroomsLevel) || !isAtStopSign(playerComponent, signPos)) {
                 return playerList;
             }

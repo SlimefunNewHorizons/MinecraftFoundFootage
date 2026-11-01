@@ -4,6 +4,8 @@ import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.compat.modmenu.ConfigStuff;
+import com.sp.entity.voice.VictimPhrases;
+import com.sp.entity.voice.VoiceCloner;
 import com.sp.entity.voice.VoiceTranscriber;
 import de.maxhenkel.voicechat.api.VoicechatApi;
 import de.maxhenkel.voicechat.api.VoicechatConnection;
@@ -350,6 +352,8 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         totalSoundData.remove(playerUUID);
         wasSpeaking.remove(playerUUID);
         randomSpeakingList.remove(playerUUID);
+        VictimPhrases.forget(playerUUID);
+        VoiceCloner.forget(playerUUID);
     }
 
     private void onServerStop(VoicechatServerStoppedEvent voicechatServerStoppedEvent) {

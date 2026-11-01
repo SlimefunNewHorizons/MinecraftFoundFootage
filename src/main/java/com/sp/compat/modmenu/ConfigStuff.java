@@ -123,4 +123,8 @@ public class ConfigStuff extends MidnightConfig {
     @Entry(category = SERVER)
     public static String sttModelId = "alphacephei/vosk-model-small-es-0.42";
 
+    //*Answers in the victim's cloned voice (downloads ~660 MB once, uses a GTX 1650 class GPU or the CPU)
+    @Entry(category = SERVER)
+    public static boolean voiceCloneEnabled = true;
+
 }

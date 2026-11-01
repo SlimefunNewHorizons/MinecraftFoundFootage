@@ -22,6 +22,12 @@ public final class ModTestRunner {
             Level94LayoutTest.class,
             Level94BlueprintTest.class,
             LanguageDetectorTest.class,
+            com.sp.entity.voice.VictimPhrasesTest.class,
+            com.sp.entity.voice.VoiceClonerTest.class,
+            com.sp.sounds.LevelMusicTest.class,
+            com.sp.world.levels.BackroomsRouteTest.class,
+            AviMjpegWriterTest.class,
+            LevelSeedTest.class,
             TickSchedulerTest.class,
             ResourcesTest.class
     );

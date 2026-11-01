@@ -5,9 +5,13 @@ import com.sp.clientWrapper.ClientWrapper;
 import com.sp.entity.custom.SmilerEntity;
 import com.sp.init.*;
 import com.sp.mixininterfaces.ServerPlayNetworkSprint;
+import com.sp.entity.voice.SkinWalkerMovement;
 import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
 import com.sp.world.levels.BackroomsLevel;
+import com.sp.world.levels.BackroomsRoute;
+import com.sp.world.generation.chunk_generator.Level94Layout;
 import com.sp.world.levels.custom.Level2BackroomsLevel;
+import com.sp.world.levels.custom.vanilla_representing.OverworldRepresentingBackroomsLevel;
 import com.sp.world.levels.custom.Level324Backroomslevel;
 import dev.onyxstudios.cca.api.v3.component.ComponentProvider;
 import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
@@ -31,6 +35,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.math.BlockPos;
@@ -42,8 +47,12 @@ import net.minecraft.world.TeleportTarget;
 import net.minecraft.world.World;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -80,6 +89,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private boolean isBeingCaptured;
     public boolean hasBeenCaptured;
     private boolean isBeingReleased;
+    //*World seed the level route is shuffled with (see BackroomsRoute), synced so the client agrees on it
+    private long routeSeed;
     private Entity targetEntity;
     private int skinWalkerLookDelay;
     private volatile boolean shouldBeMuted;
@@ -94,6 +105,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private int talkingTooLoudTimer;
     private GameMode prevGameMode;
     private String skinWalkerLang = "auto";
+    //*Set once, the first time this player joins: the mod's language then follows their game language
+    private boolean languageInitialized;
 
     private boolean canSeeActiveSkinWalker;
     private boolean prevFlashLightOn;
@@ -170,6 +183,14 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         }
 
         PlayerInventory inventory = this.player.getInventory();
+        //*The camcorder stays with the player: it is not part of the inventory they left behind
+        ItemStack camera = ItemStack.EMPTY;
+        for (int i = 0; i < inventory.size() && camera.isEmpty(); i++) {
+            if (inventory.getStack(i).isOf(ModItems.CAMERA)) {
+                camera = inventory.getStack(i).copy();
+            }
+        }
+
         inventory.clear();
         DefaultedList<ItemStack> mainInventory = inventory.main;
         DefaultedList<ItemStack> armorInventory = inventory.armor;
@@ -182,6 +203,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.playerSavedMainInventory.clear();
         this.playerSavedArmorInventory.clear();
         this.playerSavedOffhandInventory.clear();
+
+        if (!camera.isEmpty() && !inventory.containsAny(Set.of(ModItems.CAMERA)) && !inventory.insertStack(camera)) {
+            this.player.dropItem(camera, false);
+        }
     }
 
     private void saveInventory(DefaultedList<ItemStack> inventory1, Inventory inventory2){
@@ -305,6 +330,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     public boolean isBeingReleased() {
         return isBeingReleased;
     }
+
+    public long getRouteSeed() {
+        return routeSeed;
+    }
     public void setBeingReleased(boolean beingReleased) {
         isBeingReleased = beingReleased;
     }
@@ -366,6 +395,43 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     public String getSkinWalkerLang() { return skinWalkerLang; }
     public void setSkinWalkerLang(String lang) { this.skinWalkerLang = lang; }
 
+    /**
+     * Languages the mod is fully translated to and the entities fully speak. Code -> English name.
+     */
+    public static final Map<String, String> FULL_LANGUAGES = Map.of("en", "English", "es", "Spanish");
+
+    /**
+     * The mod language for a game language such as "es_mx": its two letter code if fully supported, else English.
+     */
+    public static String modLanguageFor(String gameLanguage) {
+        String code = gameLanguage == null ? "" : gameLanguage.toLowerCase(Locale.ROOT).split("_")[0];
+        return FULL_LANGUAGES.containsKey(code) ? code : "en";
+    }
+
+    /**
+     * Called with the game language the client reports. The first time ever, it picks the mod's language from it and
+     * tells the player (in English, whatever their language) how to change it.
+     */
+    public void onClientLanguage(String gameLanguage) {
+        if (this.languageInitialized || !(this.player instanceof ServerPlayerEntity serverPlayer)) {
+            return;
+        }
+        this.languageInitialized = true;
+        this.skinWalkerLang = modLanguageFor(gameLanguage);
+        this.sync();
+
+        String available = FULL_LANGUAGES.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .map(entry -> entry.getKey() + " (" + entry.getValue() + ")").collect(Collectors.joining(", "));
+        serverPlayer.sendMessage(Text.literal("[Minecraft Found Footage] ").formatted(Formatting.DARK_RED)
+                .append(Text.literal("The entities will talk to you in " + FULL_LANGUAGES.get(this.skinWalkerLang)
+                        + ", the language of your game.").formatted(Formatting.GRAY)));
+        serverPlayer.sendMessage(Text.literal("Change it any time with ").formatted(Formatting.GRAY)
+                .append(Text.literal("/skinwalkerlang <language>").formatted(Formatting.YELLOW))
+                .append(Text.literal(". Fully supported: " + available + ". Or ").formatted(Formatting.GRAY))
+                .append(Text.literal("auto").formatted(Formatting.YELLOW))
+                .append(Text.literal(" to answer in the language you speak.").formatted(Formatting.GRAY)));
+    }
+
     public boolean canSeeActiveSkinWalkerTarget() {return canSeeActiveSkinWalker;}
     public void setCanSeeActiveSkinWalkerTarget(boolean canSeeActiveSkinWalker) {this.canSeeActiveSkinWalker = canSeeActiveSkinWalker;}
 
@@ -402,6 +468,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.shouldGlitch = tag.getBoolean("shouldGlitch");
         this.shouldInflictGlitchDamage = tag.getBoolean("shouldInflictGlitchDamage");
         this.teleportingTimer = tag.getInt("teleportingTimer");
+        this.routeSeed = tag.getLong("routeSeed");
 
         if (tag.contains("checkpoint")) {
             NbtCompound checkpointNbt = tag.getCompound("checkpoint");
@@ -410,6 +477,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                 new BlockPos(checkpointNbt.getInt("x"), checkpointNbt.getInt("y"), checkpointNbt.getInt("z")));
         }
         this.skinWalkerLang = tag.contains("skinWalkerLang") ? tag.getString("skinWalkerLang") : "auto";
+        this.languageInitialized = tag.getBoolean("languageInitialized");
 
         this.playerSavedMainInventory.readNbtList(tag.getList("inventory", NbtElement.COMPOUND_TYPE));
         this.playerSavedOffhandInventory.readNbtList(tag.getList("inventoryOffHand", NbtElement.COMPOUND_TYPE));
@@ -434,7 +502,9 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("shouldGlitch", this.shouldGlitch);
         tag.putBoolean("shouldInflictGlitchDamage", this.shouldInflictGlitchDamage);
         tag.putInt("teleportingTimer", this.teleportingTimer);
+        tag.putLong("routeSeed", this.routeSeed);
         tag.putString("skinWalkerLang", this.skinWalkerLang);
+        tag.putBoolean("languageInitialized", this.languageInitialized);
 
         if (this.checkpoint != null) {
             NbtCompound checkpointNbt = new NbtCompound();
@@ -458,12 +528,22 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
     @Override
     public void clientTick() {
+        // 0 means not synced yet: in singleplayer the server and this client share the layout, never reset it
+        if (this.routeSeed != 0) {
+            Level94Layout.useSeed(this.routeSeed);
+        }
         ClientWrapper.tickClientPlayerComponent(this);
     }
 
     @Override
     public void serverTick() {
         getPrevSettings();
+
+        long worldSeed = ((ServerWorld) this.player.getWorld()).getServer().getOverworld().getSeed();
+        if (this.routeSeed != worldSeed) {
+            this.routeSeed = worldSeed;
+            this.sync();
+        }
 
         //*Update Mute Timer
         if (this.muteTimer > 0) {
@@ -480,6 +560,11 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         //*Damage if glitched enough from smilers
         if(this.shouldInflictGlitchDamage){
             this.player.damage(ModDamageTypes.of(this.player.getWorld(), ModDamageTypes.SMILER), 1.0f);
+        }
+
+        //*Teach the SkinWalker how this player moves while they still control their own body
+        if (!this.player.isSpectator() && !this.player.getAbilities().flying && !this.hasBeenCaptured) {
+            SkinWalkerMovement.recordPlayer(this.player);
         }
 
         //*Is speaking
@@ -519,8 +604,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                 this.player.teleport(this.player.getX(), this.player.getY() + 64, this.player.getZ());
             }
 
-            if (this.player.getY() < level.getFallOutY() && level.getFallbackLevel() != null && currentTransition == null) {
-                BackroomsLevel fallback = level.getFallbackLevel();
+            //*Falling out of a level is one more exit: it follows the route too, so no level is visited twice
+            BackroomsLevel routeNext = BackroomsRoute.next(level, this.routeSeed);
+            if (this.player.getY() < level.getFallOutY() && (routeNext != null || level.getFallbackLevel() != null) && currentTransition == null) {
+                BackroomsLevel fallback = routeNext != null ? routeNext : level.getFallbackLevel();
                 currentTransition = new BackroomsLevel.LevelTransition(
                     40,
                     (teleport, tick) -> {
@@ -528,7 +615,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                             SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
                         }
                     },
-                    new BackroomsLevel.CrossDimensionTeleport(this, fallback.getSafeSpawnPos(), level, fallback),
+                    new BackroomsLevel.CrossDimensionTeleport(this, fallback == BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL
+                            ? OverworldRepresentingBackroomsLevel.returnPosition(this) : fallback.getSafeSpawnPos(), level, fallback),
                     (teleport, tick) -> {});
             }
 
@@ -677,9 +765,21 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                         return true;
                     }
 
+                    // Everyone falls into Level 0 with a camcorder. One they already carry comes along instead of
+                    // being stored with the overworld inventory, so there is only ever one.
+                    ItemStack camera = new ItemStack(ModItems.CAMERA);
+                    for (int i = 0; i < this.player.getInventory().size(); i++) {
+                        if (this.player.getInventory().getStack(i).isOf(ModItems.CAMERA)) {
+                            camera = this.player.getInventory().getStack(i).copy();
+                            break;
+                        }
+                    }
+                    this.player.getInventory().remove(stack -> stack.isOf(ModItems.CAMERA), -1, this.player.playerScreenHandler.getCraftingInput());
+
                     this.savePlayerInventory();
                     this.sync();
                     this.player.getInventory().clear();
+                    this.player.getInventory().insertStack(camera);
                     TeleportTarget target = new TeleportTarget(new Vec3d(1.5, 22, 1.5), Vec3d.ZERO, this.player.getYaw(), this.player.getPitch());
                     FabricDimensions.teleport(this.player, backrooms, target);
                     this.setDoingCutscene(true);

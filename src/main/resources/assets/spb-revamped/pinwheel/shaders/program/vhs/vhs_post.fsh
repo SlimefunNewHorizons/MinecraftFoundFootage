@@ -15,6 +15,7 @@ uniform sampler2D CreepyFace2Image;
 uniform float GameTime;
 
 uniform int youCantEscape;
+uniform int CameraOn;
 uniform int Jumpscare;
 uniform int CreepyFace1;
 uniform int CreepyFace2;
@@ -53,8 +54,15 @@ vec4 Viginette(vec2 uv){
 
 void main() {
 
-    vec2 uv = BarrelDistortionCoordinates(texCoord);
+    // The tape look (lens distortion and tape noise) only while looking through the camcorder item.
+    vec2 uv = CameraOn == 1 ? BarrelDistortionCoordinates(texCoord) : texCoord;
     //    vec2 uv = texCoord;
+
+    // Tracking error: every ~20 seconds a band rolls down the tape and drags the picture sideways.
+    // (GameTime * 1200 is seconds.)
+    float bandY = 1.0 - fract(GameTime * 1200.0 * 0.05);
+    float inBand = CameraOn == 1 ? smoothstep(0.035, 0.0, abs(uv.y - bandY)) : 0.0;
+    uv.x += inBand * (hash12(vec2(uv.y * 400.0, GameTime * 9000.0)) - 0.5) * 0.02;
 
     vec4 Distortion = texture(DiffuseSampler0, uv);
     vec4 viginette = Viginette(uv);
@@ -117,11 +125,36 @@ void main() {
     }
 
     //VHS POSST EFFECTS
+    if (CameraOn == 1) {
+        vec2 fromCenter = uv - 0.5;
+        if (Jumpscare == 0 && youCantEscape == 0) {
+            // Cheap lens: the colors drift apart toward the edges
+            vec2 shift = fromCenter * dot(fromCenter, fromCenter) * 0.035;
+            fragColor.r = texture(DiffuseSampler0, uv + shift).r;
+            fragColor.b = texture(DiffuseSampler0, uv - shift).b;
+            // Tape color bleeds sideways: the chroma is softer than the picture
+            vec2 px = vec2(1.0 / float(textureSize(DiffuseSampler0, 0).x), 0.0);
+            vec3 left = rgb2yuv(texture(DiffuseSampler0, uv - px * 3.0).rgb);
+            vec3 right = rgb2yuv(texture(DiffuseSampler0, uv + px * 3.0).rgb);
+            vec3 yuv = rgb2yuv(fragColor.rgb);
+            yuv.yz = (yuv.yz * 2.0 + left.yz + right.yz) * 0.25;
+            fragColor.rgb = yuv2rgb(yuv);
+        }
+        // Washed out, slightly warm home video colors with lifted blacks
+        float luma = dot(fragColor.rgb, vec3(0.299, 0.587, 0.114));
+        fragColor.rgb = mix(fragColor.rgb, vec3(luma), 0.18);
+        fragColor.rgb = fragColor.rgb * vec3(1.03, 1.0, 0.94) * 0.92 + 0.035;
+        // Scanlines and a dark lens edge
+        fragColor.rgb *= 0.93 + 0.07 * sin(gl_FragCoord.y * 3.14159);
+        fragColor.rgb *= mix(1.0, smoothstep(0.75, 0.2, length(fromCenter)), 0.55);
+        // The tracking band flickers bright
+        fragColor.rgb += inBand * 0.08 * hash12(uv * 900.0 + GameTime * 5000.0);
 
-    fragColor.rgb = rgb2yuv(fragColor.rgb);
-    fragColor.rgb += (fragColor.rgb * vec3((hash12(uv * 260.23535 + GameTime * 70.0) + hash12(uv * 737.36346 + GameTime * 100.0)) * 2.0 - 1.0)) * 0.05;
-    fragColor.r += step(0.99994, (hash12(uv * 260.23535 + GameTime * 70.0))) * 10.0;
-    vec2 vhsNoise = texture(VhsNoise, vec2(uv.x - GameTime * 3000.0, uv.y + GameTime * 5000.0)).gb * 0.1;
-    fragColor.gb += vec2(vhsNoise.x * 0.9, vhsNoise.y * 0.9) * 0.2;
-    fragColor.rgb = yuv2rgb(fragColor.rgb);
+        fragColor.rgb = rgb2yuv(fragColor.rgb);
+        fragColor.rgb += (fragColor.rgb * vec3((hash12(uv * 260.23535 + GameTime * 70.0) + hash12(uv * 737.36346 + GameTime * 100.0)) * 2.0 - 1.0)) * 0.05;
+        fragColor.r += step(0.99994, (hash12(uv * 260.23535 + GameTime * 70.0))) * 10.0;
+        vec2 vhsNoise = texture(VhsNoise, vec2(uv.x - GameTime * 3000.0, uv.y + GameTime * 5000.0)).gb * 0.1;
+        fragColor.gb += vec2(vhsNoise.x * 0.9, vhsNoise.y * 0.9) * 0.2;
+        fragColor.rgb = yuv2rgb(fragColor.rgb);
+    }
 }

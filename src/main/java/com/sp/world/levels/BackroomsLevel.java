@@ -3,9 +3,12 @@ package com.sp.world.levels;
 import com.mojang.serialization.Codec;
 import com.sp.SPBRevamped;
 import com.sp.cca_stuff.PlayerComponent;
+import com.sp.init.BackroomsLevels;
 import com.sp.world.events.AbstractEvent;
 import com.sp.world.events.EmptyEvent;
+import com.sp.world.levels.custom.vanilla_representing.OverworldRepresentingBackroomsLevel;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -140,16 +143,45 @@ public abstract class BackroomsLevel {
         return eventList.get(random.nextInt(eventList.size()));
     }
 
+    /**
+     * The exits the player is triggering right now. On the route (see {@link BackroomsRoute}) every exit leads to
+     * the next level of this world, whatever destination the exit was written with.
+     */
     public List<LevelTransition> checkForTransition(PlayerComponent playerComponent, World world) {
         List<LevelTransition> possibleTransitions = new ArrayList<>();
+        BackroomsLevel next = BackroomsRoute.next(this, playerComponent.getRouteSeed());
         this.transitions.forEach((key, value) -> {
             List<LevelTransition> foundTransitions = value.predicate(world, playerComponent, this);
-            if (!foundTransitions.isEmpty() && isConnectedTo(foundTransitions.get(0).teleport().to())) {
-                possibleTransitions.add(foundTransitions.get(0));
+            if (foundTransitions.isEmpty()) {
+                return;
+            }
+            LevelTransition found = foundTransitions.get(0);
+            if (next != null) {
+                possibleTransitions.add(reroute(found, next, playerComponent));
+            } else if (isConnectedTo(found.teleport().to())) {
+                possibleTransitions.add(found);
             }
         });
 
         return possibleTransitions;
+    }
+
+    private LevelTransition reroute(LevelTransition transition, BackroomsLevel next, PlayerComponent playerComponent) {
+        if (transition.teleport().to() == next) {
+            return transition;
+        }
+
+        boolean home = next == BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL;
+        Vec3d arrival = home ? OverworldRepresentingBackroomsLevel.returnPosition(playerComponent) : next.getSafeSpawnPos();
+        //*The exit's own effect stays, unless it was written for going home (it hands back the saved inventory)
+        TransitionTickCallback callback = transition.teleport().to() == BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL
+                ? (teleport, tick) -> {
+                    if (!teleport.playerComponent().player.getWorld().isClient() && tick == transition.duration()) {
+                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 40, true, false);
+                    }
+                }
+                : transition.callback();
+        return new LevelTransition(transition.duration(), callback, new CrossDimensionTeleport(playerComponent, arrival, this, next), transition.cancel());
     }
 
     public void justChanged() {

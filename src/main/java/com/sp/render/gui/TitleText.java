@@ -20,6 +20,7 @@ public class TitleText implements HudRenderCallback {
         if(cutsceneManager.backroomsBySP && !cutsceneManager.blackScreen.isBlackScreen){
             Text text = Text.translatable("intro.backrooms");
             Text text2 = Text.translatable("intro.credit").append(Text.literal("SpacePotato").formatted(Formatting.GOLD));
+            Text text3 = Text.translatable("intro.fork").append(Text.literal("Chagui68").formatted(Formatting.GOLD));
             MinecraftClient client = MinecraftClient.getInstance();
             if(client != null){
                 int width = client.getWindow().getScaledWidth();
@@ -40,6 +41,8 @@ public class TitleText implements HudRenderCallback {
                 int w2 = client.textRenderer.getWidth(text2);
                 int h2 = client.textRenderer.fontHeight;
                 drawContext.drawText(client.textRenderer, text2, -w2/2,  10, 0xFFFFFF, true);
+                int w3 = client.textRenderer.getWidth(text3);
+                drawContext.drawText(client.textRenderer, text3, -w3/2,  12 + h2, 0xFFFFFF, true);
                 drawContext.getMatrices().pop();
 
                 RenderSystem.disableBlend();

@@ -21,6 +21,7 @@ public class ModItemGroups {
                         entries.add(ModBlocks.EMERGENCY_LIGHT);
                         entries.add(ModItems.BACKSHROOM);
                         entries.add(ModItems.CANNED_FOOD);
+                        entries.add(ModItems.CAMERA);
                         entries.add(ModBlocks.WALL_BLOCK);
                         entries.add(ModBlocks.WALL_BLOCK_2);
                         entries.add(ModBlocks.CEILING_TILE);

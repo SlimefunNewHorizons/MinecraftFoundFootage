@@ -18,6 +18,7 @@ import net.minecraft.command.argument.MessageArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 import net.minecraft.world.GameMode;
 
 import java.util.Collection;
@@ -53,18 +54,10 @@ public class SkinwalkerCommand {
         serverCommandSourceCommandDispatcher.register(
                 CommandManager.literal("skinwalkerlang")
                         .then(CommandManager.argument("lang", StringArgumentType.word())
+                                // Only the languages the mod is fully ready in, plus "auto"
                                 .suggests((context, builder) -> {
                                     builder.suggest("auto");
-                                    builder.suggest("es");
-                                    builder.suggest("en");
-                                    builder.suggest("de");
-                                    builder.suggest("fr");
-                                    builder.suggest("it");
-                                    builder.suggest("pt");
-                                    builder.suggest("ru");
-                                    builder.suggest("zh");
-                                    builder.suggest("ja");
-                                    builder.suggest("ko");
+                                    PlayerComponent.FULL_LANGUAGES.keySet().stream().sorted().forEach(builder::suggest);
                                     return builder.buildFuture();
                                 })
                                 .executes(context -> setLanguage(
@@ -112,18 +105,29 @@ public class SkinwalkerCommand {
 
         for (ServerPlayerEntity target : targets) {
             PlayerComponent targetComponent = InitializeComponents.PLAYER.get(target);
-            WorldEvents events = InitializeComponents.EVENTS.get(source.getWorld());
+            WorldEvents events = InitializeComponents.EVENTS.get(target.getServerWorld());
 
+            //*Clear every capture flag, otherwise WorldEvents forces the player back to survival next tick
+            targetComponent.setBeingCaptured(false);
+            targetComponent.setBeingReleased(false);
             targetComponent.setHasBeenCaptured(false);
             targetComponent.setShouldBeMuted(false);
             targetComponent.sync();
 
+            //*The skinwalker the player is looking through, even if WorldEvents lost track of it (e.g. after a restart)
+            if (target.getCameraEntity() instanceof SkinWalkerEntity skinWalker) {
+                skinWalker.discard();
+            }
+            if (events.activeSkinWalkerEntity != null) {
+                events.activeSkinWalkerEntity.discard();
+                events.activeSkinWalkerEntity = null;
+            }
+
             target.changeGameMode(targetComponent.getPrevGameMode() != null ? targetComponent.getPrevGameMode() : GameMode.SURVIVAL);
             target.setCameraEntity(target);
-            events.activeSkinWalkerEntity.discard();
-            events.activeSkinWalkerEntity = null;
 
             SPBRevamped.sendPersonalPlaySoundPacket(target, ModSounds.SKINWALKER_RELEASE, 1.0f, 1.0f);
+            source.sendFeedback(() -> Text.literal("Released " + target.getName().getString() + " from the skinwalker"), true);
         }
         return 1;
     }
@@ -137,25 +141,17 @@ public class SkinwalkerCommand {
             );
         }
 
+        if (!lang.equals("auto") && !PlayerComponent.FULL_LANGUAGES.containsKey(lang)) {
+            String available = String.join(", ", PlayerComponent.FULL_LANGUAGES.keySet().stream().sorted().toList());
+            throw new SimpleCommandExceptionType(new LiteralMessage(
+                    "Unsupported language: " + lang + ". Fully supported: " + available + ", or auto")).create();
+        }
+
         PlayerComponent component = InitializeComponents.PLAYER.get(player);
         component.setSkinWalkerLang(lang);
         component.sync();
 
-        String langName;
-        switch (lang) {
-            case "es": langName = "Español"; break;
-            case "en": langName = "English"; break;
-            case "de": langName = "Deutsch"; break;
-            case "fr": langName = "Français"; break;
-            case "it": langName = "Italiano"; break;
-            case "pt": langName = "Português"; break;
-            case "ru": langName = "Русский"; break;
-            case "zh": langName = "中文"; break;
-            case "ja": langName = "日本語"; break;
-            case "ko": langName = "한국어"; break;
-            case "auto": langName = "Auto-detect"; break;
-            default: langName = lang;
-        }
+        String langName = lang.equals("auto") ? "Auto-detect" : PlayerComponent.FULL_LANGUAGES.get(lang);
 
         source.sendFeedback(() -> net.minecraft.text.Text.literal(
             "§aSkin Walker language set to: §e" + langName

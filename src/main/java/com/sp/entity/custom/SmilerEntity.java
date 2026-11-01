@@ -44,7 +44,8 @@ public class SmilerEntity extends MobEntity {
 
     @Override
     public void tick() {
-        if(!this.getWorld().isClient) {
+        //*NoAI (e.g. /preview): skip the disappearing logic so it can be looked at
+        if(!this.getWorld().isClient && !this.isAiDisabled()) {
             if(!this.component.shouldDisappear()) {
                 if (this.getWorld().getClosestPlayer(this, 15) != null) {
                     List<? extends PlayerEntity> playerList = this.getWorld().getPlayers(TargetPredicate.createNonAttackable().setBaseMaxDistance(15), this, this.getBoundingBox().expand(15, 1, 15));

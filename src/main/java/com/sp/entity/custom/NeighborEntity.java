@@ -108,7 +108,8 @@ public class NeighborEntity extends MobEntity {
     @Override
     public void tick() {
         super.tick();
-        if (this.getWorld().isClient()) {
+        //*NoAI (e.g. /preview): just stand there to be looked at
+        if (this.getWorld().isClient() || this.isAiDisabled()) {
             return;
         }
 
@@ -289,10 +290,16 @@ public class NeighborEntity extends MobEntity {
         this.setPitch((float) -(MathHelper.atan2(dy, Math.sqrt(dx * dx + dz * dz)) * (180F / Math.PI)));
     }
 
-    // Only the player he belongs to ever sees him.
+    // Only the player he belongs to ever sees him. Without one (spawned by /preview) everybody does.
     @Override
     public boolean canBeSpectated(ServerPlayerEntity spectator) {
-        return spectator.getUuid().equals(this.target);
+        return this.target == null || spectator.getUuid().equals(this.target);
+    }
+
+    // /kill goes through damage(), which he ignores: remove him directly so previews can be cleaned up.
+    @Override
+    public void kill() {
+        this.remove(RemovalReason.KILLED);
     }
 
     @Override

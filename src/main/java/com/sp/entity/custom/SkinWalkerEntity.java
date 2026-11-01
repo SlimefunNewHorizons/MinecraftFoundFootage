@@ -121,7 +121,6 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
 
         this.goalSelector.add(5, new FinalFormWanderGoal(this, 1.0));
         this.goalSelector.add(4, new SpeakGoal(this));
-        this.goalSelector.add(3, new FollowClosestPlayerGoal(this, 5, 15, 1.0f));
         this.goalSelector.add(3, new ActNaturalGoal(this));
         this.goalSelector.add(2, new FinalFormIdleGoal(this, 60, 60));
         this.goalSelector.add(1, new FinalFormAttackGoal(this));
@@ -142,9 +141,16 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
             this.component.setTargetPlayerUUID(this.getTargetPlayer(this.getWorld()));
         }
 
+        //*NoAI (e.g. /preview): just stand there to be looked at
+        if (this.isAiDisabled()) {
+            super.tick();
+            return;
+        }
+
         this.setInvulnerable(this.component.isInTrueForm());
 
-        if (!this.getWorld().isClient && this.component.isInTrueForm()) {
+        //*Despite the name, the leg IK must tick on the client: limb positions are not synced and only the renderer uses them
+        if (this.getWorld().isClient && this.component.isInTrueForm()) {
             this.tickComponentsServer(this);
         }
 

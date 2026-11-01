@@ -10,6 +10,7 @@
 #define OFFSET vec2(0.1965249, 0.6546237)
 
 uniform sampler2D DiffuseSampler0;
+uniform float PuddleCenters[32];
 uniform sampler2D DiffuseSampler2;
 uniform sampler2D DepthSampler;
 uniform sampler2D TransparentDepthSampler;
@@ -109,24 +110,11 @@ void main() {
 
             #ifdef LEVEL324
 
-            vec2[MAX_PUDDLE_CENTERS] puddleCenters = vec2[MAX_PUDDLE_CENTERS](
-                vec2(300.0,  0.0),
-                vec2(-300.0, 0.0),
-                vec2(0.0,    300.0),
-                vec2(0.0,   -300.0),
-                vec2(150.0,  150.0),
-                vec2(150.0, -150.0),
-                vec2(-150.0, 150.0),
-                vec2(-150.0,-150.0),
-                vec2(100.0, 200.0),
-                vec2(100.0, -200.0),
-                vec2(-100.0, 200.0),
-                vec2(-100.0, -200.0),
-                vec2(200.0, 100.0),
-                vec2(-200.0, 100.0),
-                vec2(200.0, -100.0),
-                vec2(-200.0, -100.0)
-            );
+            // Exit puddles, placed per world by Level324Backroomslevel.puddleCenters (x, z pairs).
+            vec2[MAX_PUDDLE_CENTERS] puddleCenters;
+            for (int i = 0; i < MAX_PUDDLE_CENTERS; i++) {
+                puddleCenters[i] = vec2(PuddleCenters[i * 2], PuddleCenters[i * 2 + 1]);
+            }
 
             int puddleCentersCount = MAX_PUDDLE_CENTERS;
 

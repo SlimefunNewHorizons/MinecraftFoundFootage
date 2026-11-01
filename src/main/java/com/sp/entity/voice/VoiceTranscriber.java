@@ -109,6 +109,9 @@ public class VoiceTranscriber {
                 return;
             }
 
+            // Keep the recording with what was said: the SkinWalker can later answer with it.
+            VictimPhrases.add(player.getUuid(), clip, text);
+
             // Vosk models understand a single language, so that is the language of the text.
             BackroomsVoicechatPlugin.receiveChatInput(player, text.trim(), modelLanguage());
         } catch (Exception e) {
@@ -180,7 +183,7 @@ public class VoiceTranscriber {
         throw new IOException("No mirror available for model " + modelId);
     }
 
-    private static boolean download(String url, Path target) throws IOException {
+    static boolean download(String url, Path target) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(20000);

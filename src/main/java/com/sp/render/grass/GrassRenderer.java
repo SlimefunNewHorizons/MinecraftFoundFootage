@@ -301,7 +301,8 @@ public class GrassRenderer {
             return;
         }
         this.heightsAge = 0;
-        this.heightsCenter = center;
+        //*Camera#getBlockPos is a mutable pos that follows the camera: keeping it would slide the height grid with the player
+        this.heightsCenter = center.toImmutable();
 
         int size = 2 * HEIGHT_RADIUS + 1;
         if (this.heights == null) {

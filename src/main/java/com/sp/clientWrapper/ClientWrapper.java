@@ -2,6 +2,7 @@ package com.sp.clientWrapper;
 
 import com.sp.ModKeyBinds;
 import com.sp.SPBRevampedClient;
+import com.sp.render.camera.CameraView;
 import com.sp.block.custom.EmergencyLightBlock;
 import com.sp.block.custom.FluorescentLightBlock;
 import com.sp.block.custom.ThinFluorescentLightBlock;
@@ -371,6 +372,10 @@ public class ClientWrapper {
             }
 
         }
+    }
+
+    public static void toggleCamera() {
+        CameraView.toggle();
     }
 
     public static void onRemoveSkinWalkerClientSide(SkinWalkerEntity entity) {

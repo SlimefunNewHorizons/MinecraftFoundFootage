@@ -182,7 +182,27 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
                     targetComponent.setShouldBeMuted(false);
                     targetComponent.sync();
                     this.activeSkinWalkerEntity = null;
+                    //*So the next capture plays the whole release sequence again
+                    this.tick = 0;
                 }
+            } else {
+                //*Levels without the light sequence: give the body back right away
+                ServerPlayerEntity target = (ServerPlayerEntity) this.getActiveSkinwalkerTarget();
+                if (target != null) {
+                    PlayerComponent targetComponent = InitializeComponents.PLAYER.get(target);
+                    targetComponent.setBeingCaptured(false);
+                    targetComponent.setHasBeenCaptured(false);
+                    targetComponent.setShouldBeMuted(false);
+                    targetComponent.sync();
+
+                    SPBRevamped.sendPersonalPlaySoundPacket(target, ModSounds.SKINWALKER_RELEASE, 1.0f, 1.0f);
+
+                    target.changeGameMode(targetComponent.getPrevGameMode() != null ? targetComponent.getPrevGameMode() : GameMode.SURVIVAL);
+                    target.setCameraEntity(target);
+                }
+
+                this.activeSkinWalkerEntity.discard();
+                this.activeSkinWalkerEntity = null;
             }
         }));
     }

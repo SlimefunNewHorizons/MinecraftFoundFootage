@@ -1,0 +1,450 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index df71b4c..75db351 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -156,6 +156,15 @@ if(OMNIVOICE_SHARED)
+     link_ggml_backends(omnivoice)
+ endif()
+ 
++# spb-voice : flat C bridge for the SPB Revamped Minecraft mod (loaded through
++# JNA). One library with omnivoice linked in, exporting only spb_* symbols.
++add_library(spb-voice SHARED src/spb-voice.cpp)
++target_link_libraries(spb-voice PRIVATE omnivoice-core)
++link_ggml_backends(spb-voice)
++
++add_executable(spb-voice-test tools/spb-voice-test.cpp)
++target_link_libraries(spb-voice-test PRIVATE spb-voice)
++
+ # quantize: GGUF requantizer (BF16 -> K-quants), shared with acestep.cpp policy
+ add_executable(quantize tools/quantize.cpp)
+ link_ggml_backends(quantize)
+diff --git a/src/backend.h b/src/backend.h
+index 2b7dcc0..44d74d4 100644
+--- a/src/backend.h
++++ b/src/backend.h
+@@ -27,6 +27,11 @@ struct BackendPair {
+ // Used for GGML CPU thread count: GEMM shares SIMD units across hyperthreads,
+ // so one thread per physical core is optimal.
+ static int backend_cpu_n_threads(void) {
++    // Local benchmark override: OV_THREADS=<n> forces the CPU thread count.
++    if (const char * env = std::getenv("OV_THREADS")) {
++        int forced = std::atoi(env);
++        if (forced > 0) return forced;
++    }
+     int n = (int) std::thread::hardware_concurrency() / 2;
+     return n > 0 ? n : 1;
+ }
+diff --git a/src/maskgit-tts.h b/src/maskgit-tts.h
+index 2fbbe5a..460a069 100644
+--- a/src/maskgit-tts.h
++++ b/src/maskgit-tts.h
+@@ -194,7 +194,7 @@ static std::vector<int32_t> maskgit_generate(PipelineTTS *         pt,
+         const bool   audio_only    = (hidden_dump == nullptr);
+         const size_t per_audio     = (size_t) V * (size_t) K * (size_t) T;
+         const size_t per_full_item = (size_t) V * (size_t) K * (size_t) S;
+-        const size_t expected      = audio_only ? 2 * per_audio : (size_t) B_prime * per_full_item;
++        const size_t expected      = audio_only ? (size_t) B_prime * per_audio : (size_t) B_prime * per_full_item;
+         if (logits_full.size() != expected) {
+             fprintf(stderr, "[MaskGIT] FATAL: forward returned %zu f32 (expected %zu)\n", logits_full.size(), expected);
+             pipeline_tts_llm_batched_ctx_free(pt, &batched_ctx);
+@@ -216,7 +216,10 @@ static std::vector<int32_t> maskgit_generate(PipelineTTS *         pt,
+                 size_t uncond_off = ((size_t) t * K + k) * V;
+                 size_t dst_off    = ((size_t) k * T + t) * V;
+                 std::copy(src_cond + cond_off, src_cond + cond_off + V, c_log.begin() + dst_off);
+-                std::copy(src_uncond + uncond_off, src_uncond + uncond_off + V, u_log.begin() + dst_off);
++                // B'=1 (no CFG): there is no uncond row, and guidance 0 never reads u_log.
++                if (B_prime > 1) {
++                    std::copy(src_uncond + uncond_off, src_uncond + uncond_off + V, u_log.begin() + dst_off);
++                }
+             }
+         }
+ 
+diff --git a/src/pipeline-tts.cpp b/src/pipeline-tts.cpp
+index 24871ac..5d38577 100644
+--- a/src/pipeline-tts.cpp
++++ b/src/pipeline-tts.cpp
+@@ -472,12 +472,14 @@ static bool lm_batched_graph_build(PipelineTTS * pt, MaskgitBatchedCtx * ctx, in
+         ggml_set_name(cond_audio, "cond_audio_logits");
+         ggml_set_output(cond_audio);
+ 
+-        size_t               uncond_offset = (size_t) 0 * logits->nb[2] + (size_t) 1 * logits->nb[3];
+-        struct ggml_tensor * uncond_view =
+-            ggml_view_4d(gctx, logits, V, K, T_audio, 1, logits->nb[1], logits->nb[2], logits->nb[3], uncond_offset);
+-        uncond_audio = ggml_cont(gctx, uncond_view);
+-        ggml_set_name(uncond_audio, "uncond_audio_logits");
+-        ggml_set_output(uncond_audio);
++        if (B_prime > 1) {
++            size_t               uncond_offset = (size_t) 0 * logits->nb[2] + (size_t) 1 * logits->nb[3];
++            struct ggml_tensor * uncond_view   = ggml_view_4d(gctx, logits, V, K, T_audio, 1, logits->nb[1],
++                                                              logits->nb[2], logits->nb[3], uncond_offset);
++            uncond_audio                       = ggml_cont(gctx, uncond_view);
++            ggml_set_name(uncond_audio, "uncond_audio_logits");
++            ggml_set_output(uncond_audio);
++        }
+     } else {
+         ggml_set_output(logits);
+     }
+@@ -485,7 +487,9 @@ static bool lm_batched_graph_build(PipelineTTS * pt, MaskgitBatchedCtx * ctx, in
+     struct ggml_cgraph * graph = ggml_new_graph_custom(gctx, n_max_nodes, false);
+     if (T_audio > 0) {
+         ggml_build_forward_expand(graph, cond_audio);
+-        ggml_build_forward_expand(graph, uncond_audio);
++        if (uncond_audio) {
++            ggml_build_forward_expand(graph, uncond_audio);
++        }
+     } else {
+         ggml_build_forward_expand(graph, logits);
+     }
+@@ -643,9 +647,11 @@ std::vector<float> pipeline_tts_llm_forward_batched(PipelineTTS *       pt,
+     std::vector<float> out;
+     if (T_audio > 0) {
+         const size_t per_audio = (size_t) V * (size_t) K * (size_t) T_audio;
+-        out.resize(2 * per_audio);
++        out.resize((ctx->lm_uncond_audio ? 2 : 1) * per_audio);
+         ggml_backend_tensor_get(ctx->lm_cond_audio, out.data(), 0, per_audio * sizeof(float));
+-        ggml_backend_tensor_get(ctx->lm_uncond_audio, out.data() + per_audio, 0, per_audio * sizeof(float));
++        if (ctx->lm_uncond_audio) {
++            ggml_backend_tensor_get(ctx->lm_uncond_audio, out.data() + per_audio, 0, per_audio * sizeof(float));
++        }
+     } else {
+         const size_t n = ggml_nelements(ctx->lm_logits);
+         out.resize(n);
+@@ -713,6 +719,15 @@ std::vector<int32_t> pipeline_tts_generate(PipelineTTS *         pt,
+         debug_dump_i32_as_f32(&dbg, "prompt-uncond-ids", uncond_row, ids_shape, 1);
+     }
+ 
++    // No CFG: the uncond row is never read, so drop it and halve every forward.
++    // Row 0 (cond) is first in all three buffers, so truncating keeps it intact.
++    if (mg_cfg.guidance_scale == 0.0f && prompt.B_prime == 2) {
++        prompt.B_prime = 1;
++        prompt.input_ids.resize((size_t) prompt.K * (size_t) prompt.c_len);
++        prompt.audio_mask.resize((size_t) prompt.c_len);
++        prompt.attention_mask.resize((size_t) prompt.c_len * (size_t) prompt.c_len);
++    }
++
+     ov_log(OV_LOG_INFO, "[TTS] Prompt: B'=%d K=%d S=%d c_len=%d u_len=%d", prompt.B_prime, prompt.K, prompt.S_max,
+            prompt.c_len, prompt.u_len);
+ 
+diff --git a/src/spb-voice.cpp b/src/spb-voice.cpp
+new file mode 100644
+index 0000000..bf2decc
+--- /dev/null
++++ b/src/spb-voice.cpp
+@@ -0,0 +1,185 @@
++// spb-voice : flat C bridge over omnivoice for the SPB Revamped Minecraft mod.
++//
++// Java reaches it through JNA. Every function takes and returns primitives or
++// caller-owned buffers, so nothing on the Java side mirrors omnivoice structs
++// (ov_tts_params has bools and a uint64 whose padding is easy to get wrong).
++// Audio never touches the disk: references and results stay in memory.
++
++#include "omnivoice.h"
++#include "ggml-backend.h"
++
++#include <cstring>
++#include <exception>
++#include <string>
++
++#if defined(_WIN32)
++#    define SPB_API extern "C" __declspec(dllexport)
++#else
++#    define SPB_API extern "C" __attribute__((visibility("default")))
++#endif
++
++static thread_local std::string spb_error;
++
++static int spb_fail(const char * what) {
++    const char * detail = ov_last_error();
++    spb_error           = what;
++    if (detail && *detail) {
++        spb_error += ": ";
++        spb_error += detail;
++    }
++    return -1;
++}
++
++SPB_API const char * spb_last_error(void) {
++    return spb_error.c_str();
++}
++
++// No C++ exception may cross into Java: it would take the whole game down.
++static int spb_exception(const char * where) {
++    try {
++        throw;
++    } catch (const std::exception & e) {
++        spb_error = std::string(where) + ": " + e.what();
++    } catch (...) {
++        spb_error = std::string(where) + ": unknown exception";
++    }
++    return -1;
++}
++
++// Loads the ggml backends (CPU, Vulkan...) shipped next to this library, from
++// a UTF-8 path. Must run before spb_init: ggml would otherwise only look next
++// to the executable, which is java.exe here. Returns 0, or -1 on failure.
++SPB_API int spb_load_backends(const char * dir) {
++    try {
++        ggml_backend_load_all_from_path(dir);
++        return 0;
++    } catch (...) {
++        return spb_exception("spb_load_backends");
++    }
++}
++
++SPB_API int spb_device_count(void) {
++    return (int) ggml_backend_dev_count();
++}
++
++SPB_API const char * spb_device_name(int i) {
++    return ggml_backend_dev_name(ggml_backend_dev_get((size_t) i));
++}
++
++SPB_API const char * spb_device_description(int i) {
++    return ggml_backend_dev_description(ggml_backend_dev_get((size_t) i));
++}
++
++// 0 CPU, 1 discrete GPU, 2 integrated GPU, 3 accelerator (ggml_backend_dev_type).
++SPB_API int spb_device_type(int i) {
++    return (int) ggml_backend_dev_type(ggml_backend_dev_get((size_t) i));
++}
++
++SPB_API long long spb_device_memory_total(int i) {
++    size_t free_mem = 0, total_mem = 0;
++    ggml_backend_dev_memory(ggml_backend_dev_get((size_t) i), &free_mem, &total_mem);
++    return (long long) total_mem;
++}
++
++// device: a name from spb_device_name ("Vulkan0", "CPU"...), NULL for the best one.
++SPB_API void * spb_init(const char * model_path, const char * codec_path, const char * device) {
++    try {
++        struct ov_init_params params;
++        ov_init_default_params(&params);
++        params.model_path = model_path;
++        params.codec_path = codec_path;
++        params.device     = device;
++
++        struct ov_context * ov = ov_init(&params);
++        if (!ov) {
++            spb_fail("ov_init failed");
++        }
++        return ov;
++    } catch (...) {
++        spb_exception("spb_init");
++        return nullptr;
++    }
++}
++
++SPB_API void spb_free(void * ctx) {
++    ov_free((struct ov_context *) ctx);
++}
++
++SPB_API int spb_num_codebooks(void * ctx) {
++    return ov_num_codebooks((struct ov_context *) ctx);
++}
++
++// Encodes a 24 kHz mono reference once, so each later synthesis skips it.
++// Writes codes laid out [K, T] into codes_out (capacity max_codes) and
++// returns T, or -1 on failure / not enough room.
++SPB_API int spb_encode_ref(void * ctx, const float * pcm_24k, int n_samples, int * codes_out, int max_codes) {
++    try {
++        struct ov_voice_ref ref = {};
++        if (ov_extract_voice_ref((struct ov_context *) ctx, pcm_24k, n_samples, &ref) != OV_STATUS_OK) {
++            return spb_fail("ov_extract_voice_ref failed");
++        }
++
++        int needed = ref.num_codebooks * ref.ref_T;
++        int T      = ref.ref_T;
++        if (needed > max_codes) {
++            ov_voice_ref_free(&ref);
++            spb_error = "reference too long for the codes buffer";
++            return -1;
++        }
++        std::memcpy(codes_out, ref.ref_codes, (size_t) needed * sizeof(int32_t));
++        ov_voice_ref_free(&ref);
++        return T;
++    } catch (...) {
++        return spb_exception("spb_encode_ref");
++    }
++}
++
++// Synthesises text in the referenced voice. guidance 0 disables CFG, which
++// halves the work per step. duration_sec > 0 fixes the output length: the
++// caller bounds it, since a transcript that does not match the reference
++// would otherwise make the model plan minutes of audio. Writes 24 kHz mono
++// samples into out (capacity max_out) and returns their count, or -1.
++SPB_API int spb_synthesize(void *        ctx,
++                           const char *  text,
++                           const char *  lang,
++                           const int *   ref_codes,
++                           int           ref_T,
++                           const char *  ref_text,
++                           int           steps,
++                           float         guidance,
++                           float         duration_sec,
++                           long long     seed,
++                           float *       out,
++                           int           max_out) {
++    try {
++        struct ov_context *  ov = (struct ov_context *) ctx;
++        struct ov_tts_params params;
++        ov_tts_default_params(&params);
++        params.text              = text;
++        params.lang              = lang;
++        params.mg_num_step       = steps;
++        params.mg_guidance_scale = guidance;
++        params.mg_seed           = (uint64_t) seed;
++        if (duration_sec > 0.0f) {
++            params.T_override = ov_duration_sec_to_tokens(ov, duration_sec);
++        }
++        if (ref_codes && ref_T > 0) {
++            params.ref_audio_tokens = ref_codes;
++            params.ref_T            = ref_T;
++            params.ref_text         = ref_text;
++        }
++
++        struct ov_audio audio = {};
++        if (ov_synthesize(ov, &params, &audio) != OV_STATUS_OK) {
++            ov_audio_free(&audio);
++            return spb_fail("ov_synthesize failed");
++        }
++
++        int n = audio.n_samples < max_out ? audio.n_samples : max_out;
++        std::memcpy(out, audio.samples, (size_t) n * sizeof(float));
++        ov_audio_free(&audio);
++        return n;
++    } catch (...) {
++        return spb_exception("spb_synthesize");
++    }
++}
+diff --git a/tools/spb-voice-test.cpp b/tools/spb-voice-test.cpp
+new file mode 100644
+index 0000000..6593862
+--- /dev/null
++++ b/tools/spb-voice-test.cpp
+@@ -0,0 +1,126 @@
++// spb-voice-test : exercises the spb-voice bridge exactly like the mod does.
++// Usage: spb-voice-test <device|best> <model.gguf> <codec.gguf> <ref.wav (24k mono s16)> <ref.txt>
++//                       <out-prefix> <steps> <guidance>... < text.txt
++// Encodes the reference once, then synthesises the same text once per guidance value.
++
++#include <algorithm>
++#include <chrono>
++#include <iostream>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <iterator>
++#include <sstream>
++#include <string>
++#include <vector>
++
++extern "C" {
++const char * spb_last_error(void);
++int          spb_load_backends(const char * dir);
++int          spb_device_count(void);
++const char * spb_device_name(int i);
++const char * spb_device_description(int i);
++int          spb_device_type(int i);
++long long    spb_device_memory_total(int i);
++void *       spb_init(const char * model_path, const char * codec_path, const char * device);
++void         spb_free(void * ctx);
++int          spb_encode_ref(void * ctx, const float * pcm_24k, int n_samples, int * codes_out, int max_codes);
++int          spb_synthesize(void * ctx, const char * text, const char * lang, const int * ref_codes, int ref_T,
++                            const char * ref_text, int steps, float guidance, float duration_sec, long long seed, float * out, int max_out);
++}
++
++static std::string read_file(const char * path) {
++    std::ifstream f(path, std::ios::binary);
++    return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
++}
++
++// Minimal reader for the 16 bit mono WAVs used in the tests.
++static std::vector<float> read_wav_s16(const char * path) {
++    std::string        data = read_file(path);
++    std::vector<float> pcm;
++    size_t             pos  = data.find("data");
++    if (pos == std::string::npos) return pcm;
++    uint32_t size = 0;
++    std::memcpy(&size, data.data() + pos + 4, 4);
++    const int16_t * s = (const int16_t *) (data.data() + pos + 8);
++    size_t          n = std::min<size_t>(size / 2, (data.size() - pos - 8) / 2);
++    pcm.resize(n);
++    for (size_t i = 0; i < n; i++) pcm[i] = s[i] / 32768.0f;
++    return pcm;
++}
++
++static void write_wav_s16(const std::string & path, const float * pcm, int n) {
++    std::ofstream f(path, std::ios::binary);
++    uint32_t      rate = 24000, byte_rate = rate * 2, data_size = (uint32_t) n * 2, riff = 36 + data_size, fmt = 16;
++    uint16_t      pcm_fmt = 1, ch = 1, align = 2, bits = 16;
++    f.write("RIFF", 4); f.write((char *) &riff, 4); f.write("WAVEfmt ", 8); f.write((char *) &fmt, 4);
++    f.write((char *) &pcm_fmt, 2); f.write((char *) &ch, 2); f.write((char *) &rate, 4); f.write((char *) &byte_rate, 4);
++    f.write((char *) &align, 2); f.write((char *) &bits, 2); f.write("data", 4); f.write((char *) &data_size, 4);
++    for (int i = 0; i < n; i++) {
++        float   v = pcm[i] < -1 ? -1 : (pcm[i] > 1 ? 1 : pcm[i]);
++        int16_t s = (int16_t) (v * 32767);
++        f.write((char *) &s, 2);
++    }
++}
++
++int main(int argc, char ** argv) {
++    if (argc < 9) {
++        fprintf(stderr, "usage: %s <device|best> <model> <codec> <ref.wav> <ref.txt> <out-prefix> <steps> <guidance>...\n", argv[0]);
++        return 1;
++    }
++
++    std::string exe_dir = argv[0];
++    size_t      slash   = exe_dir.find_last_of("/\\");
++    exe_dir             = slash == std::string::npos ? "." : exe_dir.substr(0, slash);
++    spb_load_backends(exe_dir.c_str());
++
++    for (int i = 0; i < spb_device_count(); i++) {
++        printf("device %d: %s | %s | type=%d | %.1f GiB\n", i, spb_device_name(i), spb_device_description(i),
++               spb_device_type(i), spb_device_memory_total(i) / 1073741824.0);
++    }
++
++    const char * device = strcmp(argv[1], "best") == 0 ? nullptr : argv[1];
++    auto         t0     = std::chrono::steady_clock::now();
++    void *       ctx    = spb_init(argv[2], argv[3], device);
++    if (!ctx) {
++        fprintf(stderr, "init failed: %s\n", spb_last_error());
++        return 1;
++    }
++    auto t1 = std::chrono::steady_clock::now();
++    printf("load %.2f s\n", std::chrono::duration<double>(t1 - t0).count());
++
++    std::vector<float> ref = read_wav_s16(argv[4]);
++    std::string        ref_text = read_file(argv[5]);
++    std::vector<int>   codes(8 * 4000);
++    int                ref_T    = spb_encode_ref(ctx, ref.data(), (int) ref.size(), codes.data(), (int) codes.size());
++    auto               t2       = std::chrono::steady_clock::now();
++    if (ref_T < 0) {
++        fprintf(stderr, "encode failed: %s\n", spb_last_error());
++        return 1;
++    }
++    printf("encode ref T=%d %.2f s\n", ref_T, std::chrono::duration<double>(t2 - t1).count());
++
++    std::stringstream text;
++    text << std::cin.rdbuf();
++    int                steps = atoi(argv[7]);
++    std::vector<float> out(24000 * 20);
++    for (int a = 8; a < argc; a++) {
++        float guidance = (float) atof(argv[a]);
++        auto  s0       = std::chrono::steady_clock::now();
++        int   n = spb_synthesize(ctx, text.str().c_str(), "Spanish", codes.data(), ref_T, ref_text.c_str(), steps, guidance, 0.0f,
++                                 42, out.data(), (int) out.size());
++        auto  s1 = std::chrono::steady_clock::now();
++        if (n < 0) {
++            fprintf(stderr, "synthesize failed: %s\n", spb_last_error());
++            return 1;
++        }
++        std::string path = std::string(argv[6]) + "_g" + argv[a] + ".wav";
++        write_wav_s16(path, out.data(), n);
++        printf("guidance=%s steps=%d synth %.2f s audio %.2f s -> %s\n", argv[a], steps,
++               std::chrono::duration<double>(s1 - s0).count(), n / 24000.0, path.c_str());
++    }
++
++    spb_free(ctx);
++    return 0;
++}

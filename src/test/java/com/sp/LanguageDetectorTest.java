@@ -15,6 +15,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class LanguageDetectorTest {
 
     @Test
+    @DisplayName("A new player's mod language follows their game language when the mod is fully ready in it")
+    void defaultLanguageFromGame() {
+        assertEquals("es", com.sp.cca_stuff.PlayerComponent.modLanguageFor("es_mx"));
+        assertEquals("es", com.sp.cca_stuff.PlayerComponent.modLanguageFor("es_ES"));
+        assertEquals("en", com.sp.cca_stuff.PlayerComponent.modLanguageFor("en_us"));
+        assertEquals("en", com.sp.cca_stuff.PlayerComponent.modLanguageFor("ja_jp"), "not fully ready: English");
+        assertEquals("en", com.sp.cca_stuff.PlayerComponent.modLanguageFor(null));
+    }
+
+    @Test
     @DisplayName("Typical chat messages are detected in the 6 supported languages")
     void detectsSupportedLanguages() {
         Map<String, String> samples = Map.ofEntries(

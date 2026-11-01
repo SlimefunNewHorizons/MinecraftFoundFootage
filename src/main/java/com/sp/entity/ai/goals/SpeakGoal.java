@@ -10,8 +10,7 @@ import com.voicejavaai.core.RoboticVoice;
 import com.voicejavaai.voice.VoiceConfig;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
-import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
-import de.maxhenkel.voicechat.plugins.impl.ServerLevelImpl;
+import de.maxhenkel.voicechat.api.audiochannel.EntityAudioChannel;
 import net.minecraft.entity.ai.goal.Goal;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.world.ServerWorld;
@@ -21,6 +20,7 @@ import net.minecraft.world.World;
 import java.text.Normalizer;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class SpeakGoal extends Goal {
     /** How far away (in blocks) the SkinWalker can hear players talking or chatting. */
@@ -35,10 +35,10 @@ public class SpeakGoal extends Goal {
     private final VoiceConfig voiceConfig;
     private int actCooldown;
     private int inputCheckCooldown = 0;
-    public ServerLevelImpl serverLevel = null;
-    public LocationalAudioChannel audioChannel;
-    private RegistryKey<World> audioChannelWorld;
+    public EntityAudioChannel audioChannel;
     public AudioPlayer audioPlayer;
+    //*An answer is being generated in the cloned voice: don't claim the next input until it is queued
+    private volatile boolean cloning;
 
     public SpeakGoal(SkinWalkerEntity entity) {
         this.entity = entity;
@@ -87,7 +87,7 @@ public class SpeakGoal extends Goal {
             // Answering what players say does not wait for the idle chatter cooldown.
             if (this.inputCheckCooldown > 0) {
                 this.inputCheckCooldown--;
-            } else if (!responseQueue.hasPending()) {
+            } else if (!responseQueue.hasPending() && !this.cloning) {
                 this.inputCheckCooldown = 10;
                 if (checkForPlayerInput()) {
                     this.setRandomActCoolDown();
@@ -147,12 +147,36 @@ public class SpeakGoal extends Goal {
         int baseLatency = new LatencyCalculator().calculateLatency(latencyInput, component.isInTrueForm(), 0);
         int latency = Math.max(100, Math.min(8000, baseLatency + result.latencyModifier));
 
-        short[] responseAudio = synthesize(responseText);
+        int latencyTicks = latency / 50;
+        UUID victim = component.getTargetPlayerUUID();
+
+        // While disguised: a real recording of the victim that fits wins, then a new sentence in their cloned voice
+        // (generated off the server thread), then the robotic voice.
+        short[] realPhrase = component.isInTrueForm() ? null : VictimPhrases.find(victim, responseText);
+        if (realPhrase == null && !component.isInTrueForm()) {
+            CompletableFuture<short[]> cloned = VoiceCloner.cloneAsync(victim, responseText, result.language);
+            if (cloned != null) {
+                this.cloning = true;
+                long start = System.nanoTime();
+                String text = responseText;
+                cloned.whenComplete((audio, error) -> {
+                    short[] voice = audio != null ? audio : synthesize(text);
+                    int elapsedTicks = (int) ((System.nanoTime() - start) / 50_000_000L);
+                    if (voice.length > 0) {
+                        component.getResponseQueue().enqueue(voice, Math.max(0, latencyTicks - elapsedTicks));
+                    }
+                    this.cloning = false;
+                });
+                return true;
+            }
+        }
+
+        short[] responseAudio = realPhrase != null ? realPhrase : synthesize(responseText);
         if (responseAudio.length == 0) {
             return false;
         }
 
-        component.getResponseQueue().enqueue(responseAudio, latency / 50);
+        component.getResponseQueue().enqueue(responseAudio, latencyTicks);
         return true;
     }
 
@@ -180,7 +204,7 @@ public class SpeakGoal extends Goal {
         return Normalizer.normalize(lower, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
     }
 
-    private static short[] resample(short[] input, int fromRate, int toRate) {
+    public static short[] resample(short[] input, int fromRate, int toRate) {
         if (fromRate == toRate || input.length == 0) {
             return input;
         }
@@ -295,31 +319,12 @@ public class SpeakGoal extends Goal {
         VoicechatServerApi api = BackroomsVoicechatPlugin.voicechatApi;
         if (api == null || this.entity.getServer() == null) return;
 
-        // (Re)create the channel when the SkinWalker is in a different world than the channel was made for.
-        RegistryKey<World> worldKey = this.entity.getWorld().getRegistryKey();
-        if (this.audioChannel == null || !worldKey.equals(this.audioChannelWorld)) {
-            ServerWorld world = this.entity.getServer().getWorld(worldKey);
-            if (world == null) return;
-
-            if (this.audioPlayer != null) {
-                this.audioPlayer.stopPlaying();
-                this.audioPlayer = null;
-            }
-
-            this.serverLevel = new ServerLevelImpl(world);
-            this.audioChannel = api.createLocationalAudioChannel(
-                this.entity.getUuid(),
-                this.serverLevel,
-                api.createPosition(this.entity.getX(), this.entity.getY(), this.entity.getZ())
-            );
-            this.audioChannelWorld = worldKey;
+        // Attached to the entity, so the voice keeps coming from the SkinWalker while it walks (and across worlds).
+        if (this.audioChannel == null) {
+            this.audioChannel = api.createEntityAudioChannel(this.entity.getUuid(), api.fromEntity(this.entity));
         }
 
         if (this.audioChannel == null) return;
-
-        this.audioChannel.updateLocation(
-            api.createPosition(this.entity.getX(), this.entity.getY(), this.entity.getZ())
-        );
 
         if (this.audioPlayer != null && this.audioPlayer.isPlaying()) {
             this.audioPlayer.stopPlaying();

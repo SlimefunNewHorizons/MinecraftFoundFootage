@@ -58,7 +58,9 @@ The mod's most terrifying entity features:
 | `/skinwalkerlang <language>` | Changes the Skin Walker's language | Everyone |
 
 ### Available languages for `/skinwalkerlang`:
-`auto` `en` `es` `de` `fr` `it` `pt` `ru` `zh` `ja` `ko`
+`en` (English) and `es` (Spanish), the languages the mod is fully ready in, or `auto` to answer in the language you speak.
+
+The first time a player joins, the mod picks their game language (English if it is not one of the above) and tells them, in chat, how to change it.
 
 ---
 

@@ -45,35 +45,45 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
 
-            Vec2f[] puddleLocations = new Vec2f[]{
-                    new Vec2f(300.0f, 0.0f),
-                    new Vec2f(-300.0f, 0.0f),
-                    new Vec2f(0.0f, 300.0f),
-                    new Vec2f(0.0f, -300.0f),
-                    new Vec2f(150.0f, 150.0f),
-                    new Vec2f(150.0f, -150.0f),
-                    new Vec2f(-150.0f, 150.0f),
-                    new Vec2f(-150.0f, -150.0f),
-                    new Vec2f(100.0f, 200.0f),
-                    new Vec2f(100.0f, -200.0f),
-                    new Vec2f(-100.0f, 200.0f),
-                    new Vec2f(-100.0f, -200.0f),
-                    new Vec2f(200.0f, 100.0f),
-                    new Vec2f(-200.0f, 100.0f),
-                    new Vec2f(200.0f, -100.0f),
-                    new Vec2f(-200.0f, -100.0f)
-            };
-
             if (from instanceof Level324Backroomslevel && playerComponent.player.getY() < 20) {
-                for (Vec2f vec2f : puddleLocations) {
-                    if (4 > vec2f.distanceSquared(new Vec2f((float) playerComponent.player.getX(), (float) playerComponent.player.getZ()))) {
+                float[] puddles = puddleCenters(playerComponent.getRouteSeed());
+                Vec2f player = new Vec2f((float) playerComponent.player.getX(), (float) playerComponent.player.getZ());
+                for (int i = 0; i < puddles.length; i += 2) {
+                    if (4 > new Vec2f(puddles[i], puddles[i + 1]).distanceSquared(player)) {
                         playerList.add(getPoolRoomsTransition(playerComponent));
+                        break;
                     }
                 }
             }
 
             return playerList;
         }, this.getLevelId() + " -> " + BackroomsLevels.POOLROOMS_BACKROOMS_LEVEL.getLevelId());
+    }
+
+    // The exit puddles of the underground floor, before the world turns them.
+    private static final float[] PUDDLE_PATTERN = {
+            300, 0, -300, 0, 0, 300, 0, -300,
+            150, 150, 150, -150, -150, 150, -150, -150,
+            100, 200, 100, -200, -100, 200, -100, -200,
+            200, 100, -200, 100, 200, -100, -200, -100
+    };
+
+    /**
+     * The 16 exit puddles as x, z pairs: the same pattern in every world, turned around the center by an angle taken
+     * from the world seed (seed 0 keeps it as is). Read by the exit check and by the puddle shader.
+     */
+    public static float[] puddleCenters(long seed) {
+        double angle = seed == 0 ? 0 : (new java.util.Random(seed ^ 0x324L).nextDouble() * Math.PI * 2);
+        float cos = (float) Math.cos(angle);
+        float sin = (float) Math.sin(angle);
+        float[] centers = new float[PUDDLE_PATTERN.length];
+        for (int i = 0; i < centers.length; i += 2) {
+            float x = PUDDLE_PATTERN[i];
+            float z = PUDDLE_PATTERN[i + 1];
+            centers[i] = x * cos - z * sin;
+            centers[i + 1] = x * sin + z * cos;
+        }
+        return centers;
     }
 
     private static boolean hasGrassBeneath(PlayerComponent playerComponent) {

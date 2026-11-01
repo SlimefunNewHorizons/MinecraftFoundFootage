@@ -29,6 +29,8 @@ public class SkinWalkerMovement {
     private int pathRecalcCooldown = 0;
     private UUID trackedTargetUUID;
     private FollowMode lastMode;
+    private boolean styleSprinting;
+    private boolean styleSneaking;
 
     private static final int MIMIC_DELAY_TICKS = 10;
     private final ArrayDeque<MimicSnapshot> inputBuffer = new ArrayDeque<>();
@@ -55,13 +57,25 @@ public class SkinWalkerMovement {
         PlayerEntity target = findTargetPlayer();
         if (target == null) return;
 
-        recordPlayerInput(target);
+        UUID victim = component.getTargetPlayerUUID();
+        learningActive = victim != null && javaAI.getHistorySize(victim) > 20;
+
         recordMimicInput(target);
+
+        //*Close to a player: stand still and let ActNaturalGoal do idle things (sneak, strafe, look around, punch)
+        boolean close = target.distanceTo(entity) < MIN_DISTANCE;
+        component.setFollowTarget(target);
+        component.setShouldActNatural(close);
+        if (close || component.isCurrentlyActingNatural()) {
+            entity.getNavigation().stop();
+            return;
+        }
+
         updateFollowMode(target);
 
         if (lastMode != null && lastMode == FollowMode.MIMIC && currentMode != FollowMode.MIMIC) {
             entity.setSprinting(false);
-            entity.setSneaking(false);
+            setSneaking(false);
         }
         lastMode = currentMode;
 
@@ -72,22 +86,45 @@ public class SkinWalkerMovement {
         tickCount++;
     }
 
-    private void recordPlayerInput(PlayerEntity player) {
-        UUID playerUUID = player.getUuid();
-        boolean jumping = !player.isOnGround() && player.getVelocity().y > 0.1;
-        PlayerInputSnapshot snapshot = new PlayerInputSnapshot(
+    /**
+     * Records how a player moves. Called every tick for every player in control of their body, so the SkinWalker
+     * already knows its victim before capturing them (once captured, the victim is glued to the SkinWalker's camera).
+     * The server gets no key presses and no player velocity, so both come from the position change since the last
+     * recorded tick.
+     */
+    public static void recordPlayer(PlayerEntity player) {
+        JavaAI javaAI = JavaAI.getInstance();
+        PlayerInputSnapshot last = javaAI.getTracker(player.getUuid()).getLatest();
+        Vec3d velocity = last == null ? Vec3d.ZERO : player.getPos().subtract(last.getX(), last.getY(), last.getZ());
+        //*Teleports and dimension changes are not movement
+        if (velocity.lengthSquared() > 4) {
+            velocity = Vec3d.ZERO;
+        }
+
+        double yaw = Math.toRadians(player.getYaw());
+        double forward = -velocity.x * Math.sin(yaw) + velocity.z * Math.cos(yaw);
+        double left = velocity.x * Math.cos(yaw) + velocity.z * Math.sin(yaw);
+        boolean jumping = !player.isOnGround() && velocity.y > 0.1;
+
+        javaAI.recordInput(player.getUuid(), new PlayerInputSnapshot(
             player.getX(), player.getY(), player.getZ(),
-            player.getVelocity().x, player.getVelocity().y, player.getVelocity().z,
+            velocity.x, velocity.y, velocity.z,
             player.headYaw, player.getPitch(),
-            player.forwardSpeed > 0, player.forwardSpeed < 0,
-            player.sidewaysSpeed < 0, player.sidewaysSpeed > 0,
+            forward > 0.01, forward < -0.01, left > 0.01, left < -0.01,
             player.isSprinting(), player.isSneaking(), jumping,
             player.isOnGround()
-        );
-        javaAI.recordInput(playerUUID, snapshot);
+        ));
+    }
 
-        if (!learningActive && javaAI.getHistorySize(playerUUID) > 20) {
-            learningActive = true;
+    private Map<String, Double> victimStyle() {
+        UUID victim = component.getTargetPlayerUUID();
+        return victim == null ? Map.of() : javaAI.getPlayerStyle(victim);
+    }
+
+    //*The renderer reads the sneak pose from the component: entity.setSneaking alone is never seen
+    private void setSneaking(boolean sneaking) {
+        if (component.isSneaking() != sneaking) {
+            component.setSneaking(sneaking);
         }
     }
 
@@ -121,12 +158,9 @@ public class SkinWalkerMovement {
         } else if (currentDistance > MAX_DISTANCE) {
             currentMode = FollowMode.DIRECT;
             speedMultiplier = 1.0f + (float)(Math.random() * 0.2);
-        } else if (currentDistance < MIN_DISTANCE) {
-            currentMode = FollowMode.ORBITAL;
-            speedMultiplier = 0.6f + (float)(Math.random() * 0.2);
         } else if (learningActive && Math.random() < 0.3) {
             currentMode = FollowMode.MIMIC;
-            speedMultiplier = calculateMimicSpeed(target);
+            speedMultiplier = calculateMimicSpeed();
         } else {
             double roll = Math.random();
             if (roll < 0.5) {
@@ -141,12 +175,16 @@ public class SkinWalkerMovement {
             }
         }
 
+        //*Sprint and sneak as often as the copied player does, decided once per mode instead of flickering every tick
+        Map<String, Double> style = victimStyle();
+        styleSprinting = Math.random() < style.getOrDefault("sprint_tendency", 0.2);
+        styleSneaking = Math.random() < style.getOrDefault("sneak_tendency", 0.05);
+
         modeChangeCooldown = 20 + (int)(Math.random() * 40);
     }
 
-    private float calculateMimicSpeed(PlayerEntity target) {
-        UUID targetUUID = target.getUuid();
-        Map<String, Double> style = javaAI.getPlayerStyle(targetUUID);
+    private float calculateMimicSpeed() {
+        Map<String, Double> style = victimStyle();
 
         if (style.isEmpty()) return 0.9f;
 
@@ -201,7 +239,7 @@ public class SkinWalkerMovement {
         if (snapshot == null) return;
 
         entity.setSprinting(snapshot.sprinting());
-        entity.setSneaking(snapshot.sneaking());
+        setSneaking(snapshot.sneaking());
         if (snapshot.jumping()) {
             entity.doJump();
         }
@@ -298,13 +336,8 @@ public class SkinWalkerMovement {
         applyMimicBehaviour();
 
         if (currentMode != FollowMode.MIMIC) {
-            if (Math.random() < 0.15) {
-                entity.setSprinting(true);
-            } else if (Math.random() < 0.05) {
-                entity.setSprinting(false);
-            }
-
-            entity.setSneaking(Math.random() < 0.08);
+            entity.setSprinting(styleSprinting || currentMode == FollowMode.PURSUIT);
+            setSneaking(styleSneaking && (currentMode == FollowMode.ORBITAL || currentMode == FollowMode.RANDOM));
         }
 
         if (entity.horizontalCollision && Math.random() < 0.3) {
@@ -340,10 +373,11 @@ public class SkinWalkerMovement {
     }
 
     private PlayerEntity findTargetPlayer() {
+        //*A captured victim is a spectator glued to this entity: follow the others instead
         UUID targetUUID = component.getTargetPlayerUUID();
         if (targetUUID != null) {
             PlayerEntity target = entity.getWorld().getPlayerByUuid(targetUUID);
-            if (target != null) return target;
+            if (target != null && !target.isSpectator() && !target.isCreative()) return target;
         }
 
         List<? extends PlayerEntity> players = entity.getWorld().getPlayers();

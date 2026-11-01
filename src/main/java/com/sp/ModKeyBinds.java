@@ -9,10 +9,15 @@ import org.lwjgl.glfw.GLFW;
 
 public class ModKeyBinds {
     public static KeyBinding toggleFlashlight;
+    public static KeyBinding takePhoto;
+    public static KeyBinding recordVideo;
     public static KeyBinding toggleEvent;
 
     public static void initializeKeyBinds() {
         toggleFlashlight = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.spb-revamped.toggle_flashlight", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, "spb-revamped.keybinds"));
+        // Camcorder, only while it is on: J and K are free in vanilla and in Simple Voice Chat.
+        takePhoto = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.spb-revamped.take_photo", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_J, "spb-revamped.keybinds"));
+        recordVideo = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.spb-revamped.record_video", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_K, "spb-revamped.keybinds"));
 
         if (MinecraftClient.getInstance().getSession().getUsername().equals("SppacePotato") || MinecraftClient.getInstance().getSession().getUsername().equals("HerrChaotic") || FabricLoader.getInstance().isDevelopmentEnvironment()) {
             toggleEvent = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.spb-revamped.toggle_event", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_SEMICOLON, "spb-revamped.keybinds"));

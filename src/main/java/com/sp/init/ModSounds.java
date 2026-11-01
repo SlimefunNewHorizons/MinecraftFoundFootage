@@ -72,6 +72,19 @@ public class ModSounds {
 
     public static final SoundEvent WINDTUNNEL_GRASS_AMBIENCE = registerSoundEvent("wind_tunnel_ambience");
 
+    // Level music (tools/music/compose_music.py). The four Level 94 versions are one timeline, more broken each zone.
+    public static final SoundEvent[] LEVEL94_MUSIC = {
+            registerSoundEvent("music.level94_zone1"),
+            registerSoundEvent("music.level94_zone2"),
+            registerSoundEvent("music.level94_zone3"),
+            registerSoundEvent("music.level94_zone4")
+    };
+    public static final SoundEvent INFINITE_FIELD_MUSIC = registerSoundEvent("music.infinite_field");
+
+    // The camcorder turning on and off.
+    public static final SoundEvent CAMERA_ON = registerSoundEvent("zoomin");
+    public static final SoundEvent CAMERA_OFF = registerSoundEvent("zoomout");
+
 
     public static final SoundEvent SKINWALKER_AMBIENCE = registerSoundEvent("skinwalker_ambience");
     public static final SoundEvent SKINWALKER_CHASE = registerSoundEvent("skinwalker_chase");

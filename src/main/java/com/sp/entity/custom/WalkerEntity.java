@@ -1,5 +1,6 @@
 package com.sp.entity.custom;
 
+import com.sp.command.PreviewEntityCommand;
 import com.sp.util.StepSoundHelper;
 import com.sp.entity.ik.components.IKAnimatable;
 import com.sp.entity.ik.components.IKLegComponent;
@@ -109,7 +110,8 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
         this.tickComponentsServer(this);
 
         PlayerEntity nearestPlayer = this.getWorld().getClosestPlayer(this, 100);
-        if (nearestPlayer != null && nearestPlayer.getMainHandStack().isOf(Items.BONE)) {
+        //*Spawned by /preview: never picks a target, so it stays still
+        if (nearestPlayer != null && nearestPlayer.getMainHandStack().isOf(Items.BONE) && !this.getCommandTags().contains(PreviewEntityCommand.PREVIEW_TAG)) {
             this.setTarget(nearestPlayer);
         } else {
             this.setTarget(null);

@@ -1,6 +1,7 @@
 {
   "intro.backrooms": "The Backrooms",
   "intro.credit": "A Mod By ",
+  "intro.fork": "Fork and redesign by ",
 
   "itemgroup.spbrevamped": "Backrooms",
 
@@ -172,7 +173,7 @@
   "spb-revamped.flashlight.wet2": "It no longer works"
 ,
   "ai.consent.title": "Minecraft Found Footage",
-  "ai.consent.body": "This mod uses external voice and AI models that are downloaded the first time they are used.\n\nBy accepting, you agree to download and install the mod's external voice and AI models.\n\nDo you accept the download of the mod's external voice and AI models?",
+  "ai.consent.body": "Before you start, this is everything the mod downloads and how it is used.\n\nDOWNLOADED ONCE, into config/spb-revamped:\n- Speech recognition model (Vosk, about 40 MB, Apache 2.0). It turns what players say in proximity voice chat into text, so the Skin Walker can answer.\n- Voice cloning model (OmniVoice, about 660 MB, Apache 2.0). Only on the computer that hosts the world, on 64-bit Windows. It lets the Skin Walker say new sentences with the voice of the player it captured.\n\nALREADY INSIDE THE MOD:\n- The voice cloning runtime (omnivoice.cpp and ggml, MIT). It runs on your graphics card (GTX 1650 / RX 570 or better, through Vulkan) or on your processor.\n- A robotic voice, used when cloning is not available.\n\nHOW YOUR VOICE IS USED:\n- Everything runs on your computer or on the game server. Nothing is sent to any online AI service.\n- Voice recordings, transcriptions and cloned voices only live in memory. They are never saved to disk and are forgotten when the player leaves or the game closes.\n- Only the photos and videos you take with the camcorder are saved, in your screenshots folder.\n- Server owners can turn these features off in the mod settings (sttEnabled, voiceCloneEnabled).\n\nThe source code is public: see how the mod is made with the buttons below.\n\nDo you accept downloading and using these models?",
   "ai.consent.accept": "Accept",
   "ai.consent.decline": "Decline",
   "ai.consent.note": "If you decline, the game will close.",
@@ -210,5 +211,28 @@
   "spb-revamped.level94.neighbor.nobody_leaves": "Nobody leaves the neighborhood.",
   "spb-revamped.level94.neighbor.house_ready": "Your house is ready.",
   "spb-revamped.level94.neighbor.late": "You're late.",
-  "spb-revamped.level94.neighbor.welcome_home": "Welcome home."
+  "spb-revamped.level94.neighbor.welcome_home": "Welcome home.",
+  "item.spb-revamped.camera": "Camcorder",
+  "item.spb-revamped.camera.tooltip": "Right click: on/off. J: photo. K: record.",
+  "key.spb-revamped.take_photo": "Camcorder: Take Photo",
+  "key.spb-revamped.record_video": "Camcorder: Record Video",
+  "spb-revamped.camera.recording": "Recording...",
+  "spb-revamped.camera.saved_video": "Video saved: %s (%s s)",
+  "ai.consent.github_original": "Original mod (SpacePotato)",
+  "ai.consent.github_fork": "This version (Chagui68)",
+  "ai.consent.scroll": "Scroll to read everything",
+  "spb-revamped.level94.neighbor.lawn": "You missed a spot on your lawn.",
+  "spb-revamped.level94.neighbor.windows": "Why are your windows black?",
+  "spb-revamped.level94.neighbor.same_house": "All the houses are yours, you know.",
+  "spb-revamped.level94.neighbor.dinner": "Dinner is getting cold.",
+  "spb-revamped.level94.neighbor.counted": "I counted your steps. You took one too many.",
+  "spb-revamped.level94.neighbor.door_open": "I left your door open for you.",
+  "spb-revamped.level94.neighbor.smile": "Smile. The neighbors are watching.",
+  "spb-revamped.level94.neighbor.nothing_behind": "There is nothing behind the walls.",
+  "spb-revamped.level94.neighbor.everyone_stays": "Stay. Everyone stays.",
+  "spb-revamped.level94.neighbor.who_were_you": "Who were you before you moved here?",
+  "spb-revamped.level94.neighbor.read_sign": "Read the sign. Then stop reading.",
+  "spb-revamped.level94.neighbor.no_neighbors": "There are no other neighbors.",
+  "spb-revamped.level94.neighbor.dont_turn": "Don't turn around. I'm being polite.",
+  "spb-revamped.level94.neighbor.almost_home": "You're almost home. You were always almost home."
 }

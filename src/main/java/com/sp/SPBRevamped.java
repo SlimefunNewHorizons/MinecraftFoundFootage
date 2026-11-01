@@ -6,6 +6,7 @@ import com.sp.command.EventCommand;
 import com.sp.command.GimmeMyInventoryBack;
 import com.sp.command.IntegrityTestCommand;
 import com.sp.command.LevelCommand;
+import com.sp.command.PreviewEntityCommand;
 import com.sp.command.SkinwalkerCommand;
 import com.sp.command.VoiceChatTestCommand;
 import com.sp.compat.modmenu.ConfigStuff;
@@ -30,6 +31,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
 import com.sp.util.TickScheduler;
+import com.sp.world.generation.chunk_generator.Level94Layout;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -84,6 +86,7 @@ public class SPBRevamped implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register(SkinwalkerCommand::register);
 		CommandRegistrationCallback.EVENT.register(VoiceChatTestCommand::register);
 		CommandRegistrationCallback.EVENT.register(IntegrityTestCommand::register);
+		CommandRegistrationCallback.EVENT.register(PreviewEntityCommand::register);
 
 		// Thanks Bob Mowzie
 		GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory());
@@ -140,6 +143,8 @@ public class SPBRevamped implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(server -> TickScheduler.SERVER.tick());
 		ServerTickEvents.END_WORLD_TICK.register(Level94Director::tick);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> TickScheduler.SERVER.clear());
+		// Level 94 is laid out from the world seed (the client gets it through the player component).
+		ServerLifecycleEvents.SERVER_STARTING.register(server -> Level94Layout.useSeed(server.getSaveProperties().getGeneratorOptions().getSeed()));
 
 		// Chat messages are captured on the server so the SkinWalker can hear them on dedicated servers too.
 		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) ->

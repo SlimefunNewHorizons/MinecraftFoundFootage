@@ -407,5 +407,30 @@
     "sounds": [
       "spb-revamped:flashlight_click1"
     ]
+  },
+  "music.level94_zone1": {
+    "sounds": [
+      { "name": "spb-revamped:music/level94_zone1", "stream": true }
+    ]
+  },
+  "music.level94_zone2": {
+    "sounds": [
+      { "name": "spb-revamped:music/level94_zone2", "stream": true }
+    ]
+  },
+  "music.level94_zone3": {
+    "sounds": [
+      { "name": "spb-revamped:music/level94_zone3", "stream": true }
+    ]
+  },
+  "music.level94_zone4": {
+    "sounds": [
+      { "name": "spb-revamped:music/level94_zone4", "stream": true }
+    ]
+  },
+  "music.infinite_field": {
+    "sounds": [
+      { "name": "spb-revamped:music/infinite_field", "stream": true }
+    ]
   }
 }

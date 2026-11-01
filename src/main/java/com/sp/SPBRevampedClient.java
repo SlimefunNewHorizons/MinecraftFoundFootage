@@ -33,16 +33,20 @@ import com.sp.render.pbr.BlockIdMap;
 import com.sp.render.pbr.PbrRegistry;
 import com.sp.util.TickScheduler;
 import com.sp.sounds.Level94Ambience;
+import com.sp.sounds.LevelMusic;
+import com.sp.render.camera.CameraView;
 import com.sp.util.AIConsentStore;
 import com.sp.util.MathStuff;
 import com.sp.util.TickTimer;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.custom.InfiniteGrassBackroomsLevel;
 import com.sp.world.levels.custom.Level2BackroomsLevel;
+import com.sp.world.levels.custom.Level324Backroomslevel;
 import com.sp.world.levels.custom.Level94BackroomsLevel;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
 import de.maxhenkel.voicechat.voice.client.ClientManager;
 import foundry.veil.api.client.render.VeilRenderSystem;
+import net.fabricmc.loader.api.FabricLoader;
 import foundry.veil.api.client.render.VeilRenderer;
 import foundry.veil.api.client.render.deferred.VeilDeferredRenderer;
 import foundry.veil.api.client.render.deferred.light.renderer.LightRenderer;
@@ -124,6 +128,7 @@ public class SPBRevampedClient implements ClientModInitializer {
     public void onInitializeClient() {
         HudRenderCallback.EVENT.register(new TitleText());
         HudRenderCallback.EVENT.register(new StaminaBar());
+        HudRenderCallback.EVENT.register(CameraView.HUD);
 
         InitializePackets.registerS2CPackets();
 
@@ -362,6 +367,7 @@ public class SPBRevampedClient implements ClientModInitializer {
                 if (VHS_POST.equals(name)) {
                     ShaderProgram shaderProgram = context.getShader(POST_VHS);
                     if (shaderProgram != null) {
+                        shaderProgram.setInt("CameraOn", CameraView.isViewActive() ? 1 : 0);
                         if(youCantEscape) {
                             shaderProgram.setInt("youCantEscape", 1);
                         } else {
@@ -394,6 +400,7 @@ public class SPBRevampedClient implements ClientModInitializer {
 
                     shaderProgram = context.getShader(EVERYTHING_SHADER);
                     if (shaderProgram != null) {
+                        shaderProgram.setFloats("PuddleCenters", Level324Backroomslevel.puddleCenters(playerComponent.getRouteSeed()));
                         if (client.world.getRegistryKey() == BackroomsLevels.LEVEL1_WORLD_KEY) {
                             shaderProgram.setInt("FogToggle", 1);
                         } else {
@@ -552,9 +559,15 @@ public class SPBRevampedClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register((client) ->{
+            CameraView.tick(client);
+            // Veil's debug editor (F6) is a developer tool: outside the dev environment it never opens.
+            if (!FabricLoader.getInstance().isDevelopmentEnvironment() && VeilRenderSystem.renderer().getEditorManager().isEnabled()) {
+                VeilRenderSystem.renderer().getEditorManager().setEnabled(false);
+            }
             if (client.world != null) {
                 TickScheduler.CLIENT.tick();
                 Level94Ambience.tick(client);
+                LevelMusic.tick(client);
             } else {
                 TickScheduler.CLIENT.clear();
             }
@@ -656,6 +669,10 @@ public class SPBRevampedClient implements ClientModInitializer {
         return inBackrooms;
     }
 
+    /**
+     * Whether the post processing pipeline runs (lighting, water, puddles, bloom...). The tape look inside it only
+     * shows while looking through the camcorder (the CameraOn uniform of vhs_post).
+     */
     public static boolean shouldRenderCameraEffect() {
         return (!isInBackrooms() && ConfigStuff.enableVhsEffect) || (isInBackrooms() && ConfigStuff.enableVhsEffectInTheBackrooms);
     }
