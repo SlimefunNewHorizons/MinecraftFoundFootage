@@ -25,7 +25,7 @@ import java.util.List;
  */
 public class AcceptAIModelsScreen extends Screen {
     private static final String ORIGINAL_REPOSITORY = "https://github.com/SpacePotatoee/MinecraftFoundFootage";
-    private static final String FORK_REPOSITORY = "https://github.com/Chagui68/MinecraftFoundFootage";
+    private static final String FORK_REPOSITORY = "https://github.com/SlimefunNewHorizons/MinecraftFoundFootage";
 
     private static final int MAX_PANEL_WIDTH = 440;
     private static final int MARGIN = 20;
